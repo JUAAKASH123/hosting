@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VirtuFit | Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#e8e4f5;--purple:#7c4dff;--purple2:#b39dff;--dark:#12002e;--glow:rgba(124,77,255,.55);}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--dark);position:relative;display:flex;flex-direction:column;}
+#vanta-bg{position:fixed;top:-5%;left:-5%;width:110%;height:110%;z-index:0;pointer-events:none;will-change:transform;}
+nav{position:relative;z-index:10;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:16px 6%;}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-logo img{height:40px;width:auto;object-fit:contain;filter:drop-shadow(0 0 6px rgba(124,77,255,.35));transition:filter .3s,transform .3s;}
+.nav-logo:hover img{filter:drop-shadow(0 0 12px rgba(124,77,255,.55));transform:scale(1.05);}
+.nav-logo-text{font-size:20px;font-weight:900;color:var(--dark);letter-spacing:-.5px;line-height:1;}
+.nav-logo-text span,.card-head .brand span{color:var(--purple);}
+.nav-back{font-size:14px;font-weight:600;color:#3a2f5a;text-decoration:none;transition:color .2s;}
+.nav-back:hover{color:var(--purple);}
+.wrap{position:relative;z-index:1;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 6% 22px;}
+.card{width:100%;max-width:412px;max-height:100%;background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.75);border-radius:26px;padding:26px 32px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 24px 60px rgba(124,77,255,.14);display:flex;flex-direction:column;overflow:hidden;}
+.card-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.card-head img{height:34px;width:auto;object-fit:contain;filter:drop-shadow(0 0 6px rgba(124,77,255,.35));}
+.card-head .brand{font-size:15px;font-weight:900;color:var(--dark);letter-spacing:-.3px;}
+.card h1{font-size:24px;font-weight:900;letter-spacing:-1px;margin-bottom:4px;}
+.card .sub{font-size:13px;color:#6a5f8a;margin-bottom:18px;}
+.tabs{display:flex;background:rgba(124,77,255,.08);border-radius:14px;padding:4px;margin-bottom:18px;flex-shrink:0;}
+.tab{flex:1;text-align:center;padding:9px 0;font-size:13.5px;font-weight:700;color:#6a5f8a;border-radius:11px;cursor:pointer;transition:all .25s;border:none;background:none;font-family:inherit;}
+.tab.active{background:#fff;color:var(--purple);box-shadow:0 4px 14px rgba(124,77,255,.18);}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:11.5px;font-weight:700;color:#3a2f5a;margin-bottom:6px;letter-spacing:.02em;}
+.field input{width:100%;padding:11px 15px;border-radius:13px;border:1.5px solid rgba(124,77,255,.18);background:rgba(255,255,255,.7);font-size:14px;font-family:inherit;color:var(--dark);outline:none;transition:border-color .2s,box-shadow .2s;}
+.field input:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,77,255,.12);}
+.field input::placeholder{color:#a99fc4;}
+.row-between{display:flex;justify-content:flex-end;margin:-4px 0 12px;}
+.row-between a{font-size:12px;font-weight:600;color:var(--purple);cursor:pointer;}
+.row-between a:hover,.switch-line a:hover{text-decoration:underline;}
+.btn-primary{width:100%;padding:13px 0;border-radius:50px;background:linear-gradient(135deg,var(--purple),#9c6fff);color:#fff;font-size:14.5px;font-weight:700;border:none;cursor:pointer;font-family:inherit;box-shadow:0 8px 26px var(--glow),0 0 0 1px rgba(255,255,255,.2) inset;transition:transform .2s,box-shadow .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 36px var(--glow);}
+.btn-primary:disabled,.btn-google:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+.divider{display:flex;align-items:center;gap:12px;margin:16px 0;flex-shrink:0;}
+.divider span{font-size:11px;color:#a99fc4;font-weight:600;}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:rgba(124,77,255,.18);}
+.btn-google{width:100%;padding:11px 0;border-radius:50px;background:rgba(255,255,255,.7);border:1.5px solid rgba(124,77,255,.18);font-size:13.5px;font-weight:700;color:var(--dark);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s;font-family:inherit;}
+.btn-google:hover{border-color:var(--purple2);background:rgba(124,77,255,.08);}
+.switch-line{text-align:center;font-size:13px;color:#6a5f8a;margin-top:16px;flex-shrink:0;}
+.switch-line a{color:var(--purple);font-weight:700;cursor:pointer;}
+.msg{font-size:12.5px;border-radius:10px;padding:9px 13px;margin-bottom:12px;display:none;flex-shrink:0;}
+.msg.error{background:rgba(255,70,70,.1);color:#c0392b;border:1px solid rgba(255,70,70,.25);}
+.msg.success{background:rgba(60,200,120,.1);color:#1f8a4f;border:1px solid rgba(60,200,120,.25);}
+.form-panel{display:none;}
+.form-panel.active{display:block;}
+@media(max-height:760px){.card{padding:20px 30px;}.card-head{margin-bottom:12px;}.card h1{font-size:21px;}.card .sub{margin-bottom:14px;}.tabs{margin-bottom:14px;}.field{margin-bottom:9px;}.divider{margin:12px 0;}.switch-line{margin-top:12px;}}
+@media(max-height:640px){nav{padding:10px 6%;}.card{padding:16px 26px;}.card-head{margin-bottom:8px;}.card h1{font-size:19px;}.card .sub{font-size:12px;margin-bottom:10px;}.tabs{margin-bottom:10px;padding:3px;}.tab{padding:7px 0;}.field{margin-bottom:7px;}.field input{padding:9px 14px;}.btn-primary{padding:11px 0;}.divider{margin:9px 0;}.switch-line{margin-top:9px;}}
+@media(max-width:500px){.card{max-width:100%;padding:24px 22px;}}
+</style>
+</head>
+<body>
+<div id="vanta-bg"></div>
+
+<nav>
+  <a href="/home" class="nav-logo">
+    <img src="/assets/image/logo.png" alt="VirtuFit Logo">
+    <span class="nav-logo-text">Virtu<span>Fit</span></span>
+  </a>
+  <a href="/home" class="nav-back">← Back to home</a>
+</nav>
+
+<div class="wrap">
+  <div class="card">
+    <div class="card-head">
+      <img src="/assets/image/logo.png" alt="VirtuFit Logo">
+      <span class="brand">Virtu<span>Fit</span></span>
+    </div>
+
+    <h1 id="formTitle">Welcome back</h1>
+    <p class="sub" id="formSub">Sign in to start your virtual try-on session.</p>
+
+    <div class="tabs">
+      <button type="button" class="tab active" id="tabLogin">Log In</button>
+      <button type="button" class="tab" id="tabSignup">Sign Up</button>
+    </div>
+
+    <div class="msg error" id="errorMsg"></div>
+    <div class="msg success" id="successMsg"></div>
+
+    <form class="form-panel active" id="loginForm">
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com" required></div>
+      <div class="field"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" required></div>
+      <div class="row-between"><a id="forgotLink">Forgot password?</a></div>
+      <button type="submit" class="btn-primary" id="loginBtn">Log In</button>
+    </form>
+
+    <form class="form-panel" id="signupForm">
+      <div class="field"><label>Full name</label><input type="text" id="signupName" placeholder="Jane Doe" required></div>
+      <div class="field"><label>Email</label><input type="email" id="signupEmail" placeholder="you@example.com" required></div>
+      <div class="field"><label>Password</label><input type="password" id="signupPassword" placeholder="At least 6 characters" required minlength="6"></div>
+      <button type="submit" class="btn-primary" id="signupBtn">Create Account</button>
+    </form>
+
+    <div class="divider"><span>OR</span></div>
+
+    <button type="button" class="btn-google" id="googleBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.56 2.7-3.86 2.7-6.62z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.55-1.84.86-3.06.86-2.36 0-4.36-1.6-5.08-3.74H.9v2.34A8.99 8.99 0 0 0 9 18z"/>
+        <path fill="#FBBC05" d="M3.92 10.68A5.4 5.4 0 0 1 3.64 9c0-.58.1-1.16.28-1.68V4.98H.9A8.99 8.99 0 0 0 0 9c0 1.45.35 2.82.9 4.02l3.02-2.34z"/>
+        <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.46 3.44 1.34l2.58-2.58A8.95 8.95 0 0 0 9 0 8.99 8.99 0 0 0 .9 4.98l3.02 2.34C4.64 5.18 6.64 3.58 9 3.58z"/>
+      </svg>
+      Continue with Google
+    </button>
+
+    <p class="switch-line" id="switchLine">Don't have an account? <a id="switchToSignup">Sign up</a></p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.fog.min.js"></script>
+<script>
+  try {
+    VANTA.FOG({el:"#vanta-bg",mouseControls:true,touchControls:true,gyroControls:false,minHeight:200,minWidth:200,
+      highlightColor:0x9c6fff,midtoneColor:0x7c4dff,lowlightColor:0x12002e,baseColor:0xe8e4f5,blurFactor:.6,speed:1.2,zoom:.8});
+  } catch (e) { console.warn("Background effect failed:", e); }
+
+  (function(){
+    const bg=document.getElementById("vanta-bg"),MAX=28,EASE=.06;
+    let tx=0,ty=0,cx=0,cy=0;
+    window.addEventListener("mousemove",e=>{tx=-((e.clientX/innerWidth)-.5)*MAX*2;ty=-((e.clientY/innerHeight)-.5)*MAX*2;});
+    window.addEventListener("touchmove",e=>{const t=e.touches&&e.touches[0];if(!t)return;tx=-((t.clientX/innerWidth)-.5)*MAX;ty=-((t.clientY/innerHeight)-.5)*MAX;},{passive:true});
+    (function loop(){cx+=(tx-cx)*EASE;cy+=(ty-cy)*EASE;bg.style.transform=`translate(${cx.toFixed(2)}px,${cy.toFixed(2)}px)`;requestAnimationFrame(loop);})();
+  })();
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  setPersistence, browserLocalPersistence,
+  sendPasswordResetEmail, updateProfile, onAuthStateChanged, sendEmailVerification
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDlE6L0y2wXNUaO1Sp9Rk0VA_xtHv6Jcdc",
+  authDomain: "virtufit-31a97.firebaseapp.com",
+  projectId: "virtufit-31a97",
+  storageBucket: "virtufit-31a97.firebasestorage.app",
+  messagingSenderId: "486731377920",
+  appId: "1:486731377920:web:6d01e39374e5fd08ead7e5",
+  measurementId: "G-XLQXGQ9V98"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: "select_account" });
+
+const REDIRECT_URL = "/tryon-browser";
+
+const $ = id => document.getElementById(id);
+const tabLogin = $("tabLogin"), tabSignup = $("tabSignup");
+const loginForm = $("loginForm"), signupForm = $("signupForm");
+const formTitle = $("formTitle"), formSub = $("formSub"), switchLine = $("switchLine");
+const errorMsg = $("errorMsg"), successMsg = $("successMsg");
+const loginBtn = $("loginBtn"), signupBtn = $("signupBtn"), googleBtn = $("googleBtn");
+
+// Guarded so a persistence failure can never stop the button listeners below.
+try { await setPersistence(auth, browserLocalPersistence); }
+catch (e) { console.warn("Could not set auth persistence, continuing with default:", e); }
+
+function showLogin() {
+  tabLogin.classList.add("active"); tabSignup.classList.remove("active");
+  loginForm.classList.add("active"); signupForm.classList.remove("active");
+  formTitle.textContent = "Welcome back";
+  formSub.textContent = "Sign in to start your virtual try-on session.";
+  switchLine.innerHTML = `Don't have an account? <a id="switchToSignup">Sign up</a>`;
+  $("switchToSignup").onclick = showSignup;
+  clearMessages();
+}
+function showSignup() {
+  tabSignup.classList.add("active"); tabLogin.classList.remove("active");
+  signupForm.classList.add("active"); loginForm.classList.remove("active");
+  formTitle.textContent = "Create your account";
+  formSub.textContent = "Sign up free and try on outfits in seconds.";
+  switchLine.innerHTML = `Already have an account? <a id="switchToLogin">Log in</a>`;
+  $("switchToLogin").onclick = showLogin;
+  clearMessages();
+}
+tabLogin.onclick = showLogin;
+tabSignup.onclick = showSignup;
+$("switchToSignup").onclick = showSignup;
+
+function clearMessages() { errorMsg.style.display = "none"; successMsg.style.display = "none"; }
+function showError(t) { successMsg.style.display = "none"; errorMsg.textContent = t; errorMsg.style.display = "block"; }
+function showSuccess(t) { errorMsg.style.display = "none"; successMsg.textContent = t; successMsg.style.display = "block"; }
+
+function friendlyError(code) {
+  const map = {
+    "auth/invalid-email": "That email address looks invalid.",
+    "auth/user-not-found": "No account found with that email.",
+    "auth/wrong-password": "Incorrect password. Try again.",
+    "auth/invalid-credential": "Incorrect email or password.",
+    "auth/email-already-in-use": "An account already exists with that email.",
+    "auth/weak-password": "Password should be at least 6 characters.",
+    "auth/too-many-requests": "Too many attempts. Please wait and try again.",
+    "auth/popup-closed-by-user": "Google sign-in was cancelled.",
+    "auth/popup-blocked": "The sign-in popup was blocked. Allow popups for this site and try again.",
+    "auth/operation-not-allowed": "Google sign-in isn't enabled for this project.",
+    "auth/network-request-failed": "Network error. Check your connection and try again.",
+    "auth/unauthorized-domain": "This domain isn't authorized for Google sign-in yet. Add it in Firebase → Authentication → Settings → Authorized domains.",
+    "auth/account-exists-with-different-credential": "An account already exists with this email using a different sign-in method."
+  };
+  return map[code] || "Something went wrong. Please try again.";
+}
+
+// Tells the backend about the login (triggers the login email). Never blocks the redirect on failure.
+async function syncWithBackend(user) {
+  try {
+    const idToken = await user.getIdToken();
+    await Promise.race([
+      fetch("/api/login-success", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${idToken}` },
+        keepalive: true,
+      }),
+      new Promise(resolve => setTimeout(resolve, 1500))
+    ]);
+  } catch (e) { console.warn("Could not reach backend:", e); }
+}
+
+let redirecting = false;
+function goToApp(delay = 600) {
+  if (redirecting) return;
+  redirecting = true;
+  setTimeout(() => window.location.href = REDIRECT_URL, delay);
+}
+
+/* ── Email login ── */
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault(); clearMessages();
+  loginBtn.disabled = true; loginBtn.textContent = "Logging in…";
+  try {
+    const cred = await signInWithEmailAndPassword(auth, $("loginEmail").value.trim(), $("loginPassword").value);
+    await syncWithBackend(cred.user);
+    showSuccess("Logged in! Redirecting…");
+    goToApp();
+  } catch (err) {
+    console.error("Login failed:", err);
+    showError(friendlyError(err.code));
+  } finally {
+    loginBtn.disabled = false; loginBtn.textContent = "Log In";
+  }
+});
+
+/* ── Signup ── */
+signupForm.addEventListener("submit", async (e) => {
+  e.preventDefault(); clearMessages();
+  signupBtn.disabled = true; signupBtn.textContent = "Creating account…";
+  const name = $("signupName").value.trim();
+  const email = $("signupEmail").value.trim();
+  const password = $("signupPassword").value;
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    if (name) {
+      try { await updateProfile(cred.user, { displayName: name }); await cred.user.getIdToken(true); }
+      catch (e) { console.warn("Could not update display name:", e); }
+    }
+    try { await sendEmailVerification(cred.user); }
+    catch (e) { console.warn("Could not send verification email:", e); }
+    await syncWithBackend(cred.user);
+    showSuccess("Account created! Check your email to verify your address. Redirecting…");
+    goToApp(1200);
+  } catch (err) {
+    console.error("Signup failed:", err);
+    showError(friendlyError(err.code));
+  } finally {
+    signupBtn.disabled = false; signupBtn.textContent = "Create Account";
+  }
+});
+
+/* ── Google sign-in (POPUP — avoids the cross-site storage block that breaks redirect) ── */
+googleBtn.addEventListener("click", async () => {
+  clearMessages();
+  googleBtn.disabled = true;
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    await syncWithBackend(result.user);
+    showSuccess("Logged in! Redirecting…");
+    goToApp();
+  } catch (err) {
+    console.error("Google popup sign-in failed:", err);
+    if (err.code === "auth/cancelled-popup-request") return;
+    if (err.code === "auth/popup-blocked") {
+      try { await signInWithRedirect(auth, googleProvider); return; }
+      catch (e2) { console.error("Redirect fallback failed:", e2); }
+    }
+    showError(friendlyError(err.code));
+  } finally {
+    googleBtn.disabled = false;
+  }
+});
+
+// Only used if the redirect fallback was triggered.
+getRedirectResult(auth).then(async (result) => {
+  if (result && result.user) {
+    await syncWithBackend(result.user);
+    showSuccess("Logged in! Redirecting…");
+    goToApp();
+  }
+}).catch((err) => {
+  console.error("Google redirect result failed:", err);
+  if (err && err.code) showError(friendlyError(err.code));
+});
+
+/* ── Forgot password ── */
+$("forgotLink").addEventListener("click", async () => {
+  const email = $("loginEmail").value.trim();
+  clearMessages();
+  if (!email) { showError("Enter your email above first, then click 'Forgot password?'."); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showSuccess("Password reset email sent — check your inbox.");
+  } catch (err) { showError(friendlyError(err.code)); }
+});
+
+/* Bounce an already-signed-in visitor past the form (first callback only). */
+let initialAuthCheckDone = false;
+onAuthStateChanged(auth, (user) => {
+  if (initialAuthCheckDone) return;
+  initialAuthCheckDone = true;
+  if (user) goToApp(0);
+});
+</script>
+</body>
+</html>

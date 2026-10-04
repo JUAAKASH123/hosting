@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="VirtuFit dressing room — try on clothes live using your webcam. All processing runs on your own device; nothing is uploaded.">
+<title>VirtuFit — Virtual Dressing Room</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple-1:#7f5cff;--purple-2:#b36cff;--purple-glow:rgba(127,92,255,.45);
+  --gradient:linear-gradient(135deg,var(--purple-1),var(--purple-2));
+  --gradient-soft:linear-gradient(135deg,rgba(127,92,255,.15),rgba(179,108,255,.12));
+  --text-main:#1b1b1f;--text-muted:#6e6e80;--border:rgba(127,92,255,.18);
+  --shadow:0 25px 70px rgba(127,92,255,.25);--radius:24px;--transition:all .35s ease;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(circle at top left,rgba(127,92,255,.12),transparent 40%),radial-gradient(circle at bottom right,rgba(179,108,255,.15),transparent 45%),#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.frame{width:94vw;max-width:1500px;height:92vh;height:92dvh;display:flex;border-radius:var(--radius);background:#fff;border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.camera-area{position:relative;flex:1;background:linear-gradient(180deg,#faf9ff,#f2f0ff);overflow:hidden;}
+.camera-area::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 2px rgba(127,92,255,.25);pointer-events:none;z-index:2;}
+#raw-video{display:none;}
+#output-canvas{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .6s;}
+#output-canvas.live{opacity:1;}
+#cam-loader{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;background:linear-gradient(180deg,#faf9ff,#f2f0ff);transition:opacity .5s;}
+#cam-loader.hidden{opacity:0;pointer-events:none;}
+.loader-ring{width:44px;height:44px;border:3px solid rgba(127,92,255,.15);border-top-color:var(--purple-1);border-radius:50%;animation:spin .9s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#cam-loader p{font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);}
+.floating-btn{position:absolute;top:22px;height:64px;padding:0 44px;display:flex;align-items:center;justify-content:center;border-radius:999px;background:var(--gradient);color:#fff;font-size:16px;font-weight:800;letter-spacing:.4px;cursor:pointer;border:none;box-shadow:0 12px 35px rgba(127,92,255,.55),inset 0 0 0 1px rgba(255,255,255,.35);transition:var(--transition);z-index:10;}
+.floating-btn:hover,.floating-btn.gesture-hover{transform:translateY(-4px) scale(1.06);box-shadow:0 22px 60px rgba(127,92,255,.8),inset 0 0 0 1px rgba(255,255,255,.6);}
+.floating-btn.gesture-hover::after{content:"";position:absolute;inset:-6px;border-radius:inherit;border:2px solid #fff;opacity:.9;pointer-events:none;}
+.floating-left{left:22px;}.floating-right{right:22px;}
+.camera-toggle{position:absolute;bottom:26px;right:26px;z-index:10;display:flex;align-items:center;gap:14px;padding:14px 20px;background:linear-gradient(180deg,#fff,#f6f3ff);border-radius:999px;border:1px solid var(--border);box-shadow:0 15px 40px rgba(127,92,255,.3);}
+.live-dot{width:11px;height:11px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 14px rgba(255,59,59,.7);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%{transform:scale(1);opacity:1;}50%{transform:scale(1.5);opacity:.6;}100%{transform:scale(1);opacity:1;}}
+.camera-toggle span{font-size:14px;font-weight:700;color:var(--text-main);}
+.switch{position:relative;width:54px;height:30px;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;inset:0;background:#ddd;border-radius:999px;transition:var(--transition);cursor:pointer;}
+.slider::before{content:"";position:absolute;width:22px;height:22px;left:4px;top:4px;background:#fff;border-radius:50%;transition:var(--transition);}
+.switch input:checked+.slider{background:var(--gradient);}
+.switch input:checked+.slider::before{transform:translateX(24px);}
+#fps-badge{position:absolute;top:100px;left:50%;transform:translateX(-50%);background:rgba(127,92,255,.15);color:var(--purple-1);font-size:.7rem;font-weight:600;letter-spacing:.06em;padding:.25rem .8rem;border-radius:999px;pointer-events:none;z-index:10;}
+.light-warning{position:absolute;top:22px;left:50%;transform:translateX(-50%);background:#ff3b3b;color:#fff;font-size:.8rem;font-weight:700;padding:.5rem 1.2rem;border-radius:999px;z-index:11;display:none;box-shadow:0 8px 20px rgba(255,59,59,.5);}
+.hint{position:absolute;bottom:10px;width:100%;text-align:center;font-size:13px;font-weight:500;color:var(--text-muted);z-index:10;}
+.back-home{position:absolute;bottom:26px;left:26px;z-index:10;display:flex;align-items:center;gap:10px;padding:14px 26px;background:var(--gradient-soft);border-radius:999px;border:1px solid var(--border);box-shadow:0 15px 40px rgba(127,92,255,.35);font-size:14px;font-weight:700;cursor:pointer;transition:var(--transition);color:var(--text-main);text-decoration:none;}
+.back-home:hover{background:var(--gradient);color:#fff;transform:translateY(-4px);}
+.cloth-panel{width:220px;height:100%;padding:20px 14px;background:linear-gradient(180deg,#faf8ff,#f0ecff);border-left:1px solid var(--border);overflow-y:auto;}
+.cloth-panel::-webkit-scrollbar{width:6px;}
+.cloth-panel::-webkit-scrollbar-thumb{background:var(--purple-1);border-radius:6px;}
+.cloth-item{position:relative;width:100%;height:150px;margin-bottom:22px;border-radius:18px;background:#fff;box-shadow:0 8px 20px rgba(127,92,255,.15);cursor:pointer;transition:var(--transition);}
+.cloth-item:hover{transform:translateY(-6px) scale(1.05);box-shadow:0 20px 50px rgba(127,92,255,.45);}
+.cloth-item img{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:88%;height:115px;object-fit:contain;}
+.cloth-item.active{background:var(--gradient-soft);outline:3px solid var(--purple-1);box-shadow:0 0 0 4px rgba(127,92,255,.25),0 25px 60px rgba(127,92,255,.65);}
+.cloth-item.loading::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 100%);background-size:200% 100%;animation:shimmer 1.1s infinite;pointer-events:none;}
+@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+.instructions-overlay{position:fixed;inset:0;z-index:100;background:rgba(18,8,40,.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:24px;}
+.instructions-overlay.show{display:flex;}
+.instructions-card{width:100%;max-width:440px;background:#fff;border-radius:26px;border:1px solid var(--border);box-shadow:var(--shadow);padding:32px 30px 26px;}
+.instructions-card h2{font-size:22px;font-weight:800;color:var(--text-main);margin-bottom:6px;letter-spacing:-.3px;}
+.instructions-card .sub{font-size:13.5px;color:var(--text-muted);margin-bottom:20px;}
+.instructions-list{list-style:none;display:flex;flex-direction:column;gap:14px;margin-bottom:26px;}
+.instructions-list li{display:flex;align-items:flex-start;gap:12px;font-size:14px;color:#333;line-height:1.5;}
+.instructions-list .emoji{font-size:19px;line-height:1.4;flex-shrink:0;}
+.instructions-card button{width:100%;padding:14px 0;border-radius:999px;border:none;background:var(--gradient);color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:var(--transition);box-shadow:0 8px 26px var(--purple-glow);}
+.instructions-card button:hover{transform:translateY(-2px);box-shadow:0 14px 34px var(--purple-glow);}
+.help-btn{position:absolute;bottom:26px;right:200px;z-index:10;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);border:1px solid var(--border);box-shadow:0 10px 26px rgba(127,92,255,.25);font-size:15px;font-weight:800;color:var(--purple-1);cursor:pointer;transition:var(--transition);}
+.help-btn:hover{transform:translateY(-3px);background:var(--gradient);color:#fff;}
+@media (max-width:900px){
+  .frame{width:100vw;max-width:none;height:100vh;height:100dvh;border-radius:0;border:none;flex-direction:column;}
+  .camera-area{flex:1;min-height:0;}
+  .floating-btn{top:14px;height:46px;padding:0 22px;font-size:13px;}
+  .floating-left{left:12px;}.floating-right{right:12px;}
+  .light-warning{top:68px;font-size:.72rem;padding:.4rem 1rem;}
+  #fps-badge{display:none;}
+  .camera-toggle{bottom:12px;right:12px;padding:10px 14px;gap:10px;}
+  .back-home{bottom:12px;left:12px;padding:10px 18px;font-size:13px;}
+  .hint{bottom:4px;font-size:11px;}
+  .cloth-panel{width:100%;height:128px;flex:0 0 auto;display:flex;flex-direction:row;align-items:center;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;border-left:none;border-top:1px solid var(--border);padding:14px 12px;gap:12px;}
+  .cloth-panel::-webkit-scrollbar{height:6px;width:auto;}
+  .cloth-item{width:92px;height:100px;flex:0 0 auto;margin-bottom:0;}
+  .cloth-item img{top:8px;width:82%;height:70px;}
+  .help-btn{bottom:66px;right:12px;width:38px;height:38px;font-size:13px;}
+  .instructions-card{padding:26px 22px 22px;}
+}
+</style>
+</head>
+<body>
+
+<div class="instructions-overlay" id="instructionsOverlay">
+  <div class="instructions-card">
+    <h2>Before you start</h2>
+    <p class="sub">A few quick things for the best experience:</p>
+    <ul class="instructions-list">
+      <li><span class="emoji">📷</span><span>Your camera runs entirely on this device — nothing is uploaded or stored anywhere.</span></li>
+      <li><span class="emoji">🧍</span><span>Stand back far enough that your shoulders and hips are both visible in frame.</span></li>
+      <li><span class="emoji">💡</span><span>Good, even lighting helps the AI track you accurately — avoid strong backlight.</span></li>
+      <li><span class="emoji">👉</span><span>Point at Prev/Next to switch outfits hands-free, or just tap/click them.</span></li>
+      <li><span class="emoji">⌨️</span><span>On desktop, the ← and → arrow keys also switch outfits.</span></li>
+    </ul>
+    <button id="instructionsGotIt">Got it — Start Try-On</button>
+  </div>
+</div>
+
+<button class="help-btn" id="helpBtn" title="Show instructions again">?</button>
+
+<div class="frame">
+  <div class="camera-area">
+    <div id="cam-loader">
+      <div class="loader-ring"></div>
+      <p id="loader-text">Waiting for sign-in…</p>
+    </div>
+    <video id="raw-video" autoplay playsinline muted></video>
+    <canvas id="output-canvas"></canvas>
+    <div id="fps-badge">— fps</div>
+    <div id="light-warning" class="light-warning">⚠️ Low lighting detected — try a brighter room</div>
+    <button class="floating-btn floating-left" id="btn-prev" onclick="changeCloth(-1)">Prev</button>
+    <button class="floating-btn floating-right" id="btn-next" onclick="changeCloth(1)">Next</button>
+    <div class="camera-toggle">
+      <div class="live-dot" id="live-dot"></div>
+      <span id="cam-label">LIVE</span>
+      <label class="switch">
+        <input type="checkbox" id="cam-switch" checked onchange="toggleCamera()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <a href="/home" class="back-home">⟵ Home</a>
+    <div class="hint">Point at Prev/Next to change outfits, or tap/click them — everything runs on your own device</div>
+  </div>
+
+  <div class="cloth-panel" id="cloth-panel"></div>
+</div>
+
+<div id="toast" style="position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(12px);background:#1b1b1f;color:#fff;font-size:.75rem;letter-spacing:.06em;padding:.6rem 1.4rem;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:200;"></div>
+
+<script type="module">
+// ── FIX: a single merged import for Firebase Auth. The old file imported
+// getAuth/onAuthStateChanged twice, which is a SyntaxError that stopped the
+// whole module (so the page stayed on "Waiting for sign-in…" forever).
+import { PoseLandmarker, HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDlE6L0y2wXNUaO1Sp9Rk0VA_xtHv6Jcdc",
+  authDomain: "virtufit-31a97.firebaseapp.com",
+  projectId: "virtufit-31a97",
+  storageBucket: "virtufit-31a97.firebasestorage.app",
+  messagingSenderId: "486731377920",
+  appId: "1:486731377920:web:6d01e39374e5fd08ead7e5",
+  measurementId: "G-XLQXGQ9V98"
+};
+
+const auth = getAuth(initializeApp(firebaseConfig));
+setPersistence(auth, browserLocalPersistence).catch(e => console.warn("Persistence setup failed:", e));
+
+const WIDTH_SCALE = 2.0;
+const HEIGHT_SCALE = 1.6;
+const NECK_OFFSET_FACTOR = 0.22;
+const SMOOTH_ALPHA = 0.3;
+const MIN_ALPHA = 30;
+const MIN_ROW_FRACTION = 0.03;
+const LOW_LIGHT_THRESHOLD = 60;
+const BUTTON_COOLDOWN_MS = 1500;
+const HAND_DETECT_EVERY_N_FRAMES = 2;
+
+const LEFT_SHOULDER = 11, RIGHT_SHOULDER = 12, LEFT_HIP = 23, RIGHT_HIP = 24;
+const INDEX_FINGERTIP = 8;
+
+const rawVideo = document.getElementById('raw-video');
+const canvas = document.getElementById('output-canvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const loader = document.getElementById('cam-loader');
+const loaderText = document.getElementById('loader-text');
+const liveDot = document.getElementById('live-dot');
+const camLabel = document.getElementById('cam-label');
+const camSwitch = document.getElementById('cam-switch');
+const fpsBadge = document.getElementById('fps-badge');
+const lightWarning = document.getElementById('light-warning');
+const clothPanel = document.getElementById('cloth-panel');
+const prevBtnEl = document.getElementById('btn-prev');
+const nextBtnEl = document.getElementById('btn-next');
+const instructionsOverlay = document.getElementById('instructionsOverlay');
+const instructionsGotIt = document.getElementById('instructionsGotIt');
+const helpBtn = document.getElementById('helpBtn');
+const SEEN_INSTRUCTIONS_KEY = 'virtufit_seen_instructions';
+
+let poseLandmarker = null;
+let handLandmarker = null;
+let streaming = false;
+let loopRunning = false;
+let lastVideoTime = -1;
+let frameCount = 0, lastFpsTime = performance.now();
+let fpsSamples = [];
+let gpuDelegateUsed = { pose: null, hands: null };
+let lastLightCheck = 0;
+let renderFrameIdx = 0;
+
+let lastButtonTime = 0;
+let handWasInside = { left: false, right: false };
+
+// Garments are analyzed lazily, the first time each one is selected.
+let clothes = [];
+let clothImages = [];
+let clothMeta = [];
+let _analyzing = new Set();
+let curId = 0;
+
+let smoothX = null, smoothY = null, smoothW = null, smoothH = null;
+let missedPoseFrames = 0;
+const MAX_MISSED_POSE_FRAMES = 6;
+
+const analysisCanvas = document.createElement('canvas');
+const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+
+function hasRealTransparency(data) {
+  let transparentCount = 0;
+  const total = data.length / 4;
+  for (let i = 3; i < data.length; i += 4) if (data[i] < 250) transparentCount++;
+  return (transparentCount / total) > 0.01;
+}
+
+function estimateBackgroundColor(data, w, h) {
+  const corners = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]];
+  let r = 0, g = 0, b = 0;
+  corners.forEach(([x, y]) => {
+    const i = (y * w + x) * 4;
+    r += data[i]; g += data[i + 1]; b += data[i + 2];
+  });
+  return [r / 4, g / 4, b / 4];
+}
+
+function colorDist(data, i, bg) {
+  const dr = data[i] - bg[0], dg = data[i + 1] - bg[1], db = data[i + 2] - bg[2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+function removeFlatBackground(imgData, w, h) {
+  const data = imgData.data;
+  const bg = estimateBackgroundColor(data, w, h);
+  const THRESHOLD = 30;
+  const visited = new Uint8Array(w * h);
+  const stack = [];
+  for (let x = 0; x < w; x++) { stack.push([x, 0]); stack.push([x, h - 1]); }
+  for (let y = 0; y < h; y++) { stack.push([0, y]); stack.push([w - 1, y]); }
+
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || y < 0 || x >= w || y >= h) continue;
+    const idx = y * w + x;
+    if (visited[idx]) continue;
+    visited[idx] = 1;
+    const i = idx * 4;
+    if (colorDist(data, i, bg) > THRESHOLD) continue;
+    data[i + 3] = 0;
+    stack.push([x + 1, y]); stack.push([x - 1, y]); stack.push([x, y + 1]); stack.push([x, y - 1]);
+  }
+  erodeAlpha(data, w, h, 2);
+  return imgData;
+}
+
+function erodeAlpha(data, w, h, radius) {
+  const original = new Uint8ClampedArray(w * h);
+  for (let p = 0; p < w * h; p++) original[p] = data[p * 4 + 3];
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (original[idx] === 0) continue;
+      let minAlpha = 255;
+      for (let dy = -radius; dy <= radius && minAlpha > 0; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = x + dx, ny = y + dy;
+          const a = (nx < 0 || ny < 0 || nx >= w || ny >= h) ? 0 : original[ny * w + nx];
+          if (a < minAlpha) minAlpha = a;
+        }
+      }
+      if (minAlpha === 0) data[idx * 4 + 3] = 0;
+    }
+  }
+}
+
+function analyzeGarment(img) {
+  analysisCanvas.width = img.naturalWidth;
+  analysisCanvas.height = img.naturalHeight;
+  analysisCtx.clearRect(0, 0, analysisCanvas.width, analysisCanvas.height);
+  analysisCtx.drawImage(img, 0, 0);
+  const w = analysisCanvas.width, h = analysisCanvas.height;
+  let imgData = analysisCtx.getImageData(0, 0, w, h);
+
+  if (!hasRealTransparency(imgData.data)) imgData = removeFlatBackground(imgData, w, h);
+
+  const drawable = document.createElement('canvas');
+  drawable.width = w; drawable.height = h;
+  drawable.getContext('2d').putImageData(imgData, 0, 0);
+
+  const data = imgData.data;
+  let collarRow = 0;
+  let momentSumX = 0, momentCount = 0;
+  for (let y = 0; y < h; y++) {
+    let opaqueInRow = 0;
+    for (let x = 0; x < w; x++) {
+      const a = data[(y * w + x) * 4 + 3];
+      if (a > MIN_ALPHA) { opaqueInRow++; momentSumX += x; momentCount++; }
+    }
+    if (collarRow === 0 && opaqueInRow > MIN_ROW_FRACTION * w) collarRow = y;
+  }
+  const centroidXFrac = momentCount > 0 ? (momentSumX / momentCount) / w : 0.5;
+  return { collarTopFrac: h ? collarRow / h : 0, centroidXFrac, drawable };
+}
+
+async function loadClothes() {
+  try {
+    const res = await fetch('/clothes');
+    const data = await res.json();
+    clothes = data.clothes || [];
+  } catch (e) {
+    console.error('Could not load garment list:', e);
+    toast('Could not load outfits');
+    return;
+  }
+
+  clothPanel.innerHTML = '';
+  clothImages = new Array(clothes.length);
+  clothMeta = new Array(clothes.length);
+
+  clothes.forEach((name, i) => {
+    const div = document.createElement('div');
+    div.className = 'cloth-item' + (i === 0 ? ' active' : '');
+    div.id = `thumb-${i}`;
+    div.onclick = () => window.selectCloth(i);
+    const img = document.createElement('img');
+    img.src = `/assets/he/${name}`;
+    img.alt = name;
+    img.loading = 'lazy';
+    div.appendChild(img);
+    clothPanel.appendChild(div);
+  });
+
+  if (clothes.length) ensureGarmentReady(0);
+}
+
+function ensureGarmentReady(i) {
+  if (clothMeta[i] || _analyzing.has(i)) return;
+  _analyzing.add(i);
+
+  const thumb = document.getElementById(`thumb-${i}`);
+  if (thumb) thumb.classList.add('loading');
+
+  const fullImg = new Image();
+  fullImg.crossOrigin = 'anonymous';
+  fullImg.onload = () => {
+    clothImages[i] = fullImg;
+    clothMeta[i] = analyzeGarment(fullImg);
+    _analyzing.delete(i);
+    if (thumb) thumb.classList.remove('loading');
+  };
+  fullImg.onerror = () => {
+    console.warn('Failed to load garment:', clothes[i]);
+    _analyzing.delete(i);
+    if (thumb) thumb.classList.remove('loading');
+  };
+  fullImg.src = `/assets/he/${clothes[i]}`;
+}
+
+async function createLandmarker(Cls, vision, modelPath, extra, key) {
+  try {
+    const lm = await Cls.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: modelPath, delegate: "GPU" },
+      runningMode: "VIDEO", ...extra
+    });
+    gpuDelegateUsed[key] = "GPU";
+    return lm;
+  } catch (e) {
+    console.warn(`GPU delegate unavailable for ${key}, falling back to CPU:`, e);
+    const lm = await Cls.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: modelPath, delegate: "CPU" },
+      runningMode: "VIDEO", ...extra
+    });
+    gpuDelegateUsed[key] = "CPU";
+    return lm;
+  }
+}
+
+async function initModels() {
+  loaderText.textContent = 'Loading AI model…';
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm"
+  );
+  const poseModelPath = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+  const handModelPath = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+  poseLandmarker = await createLandmarker(PoseLandmarker, vision, poseModelPath, { numPoses: 1 }, 'pose');
+  handLandmarker = await createLandmarker(HandLandmarker, vision, handModelPath, { numHands: 2 }, 'hands');
+}
+
+async function startCamera() {
+  if (streaming) return;
+  loaderText.textContent = 'Requesting camera…';
+  loader.classList.remove('hidden');
+  canvas.classList.remove('live');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false
+    });
+    rawVideo.srcObject = stream;
+    await rawVideo.play();
+
+    canvas.width = rawVideo.videoWidth;
+    canvas.height = rawVideo.videoHeight;
+
+    if (!poseLandmarker || !handLandmarker) await initModels();
+
+    streaming = true;
+    loopRunning = true;
+    loader.classList.add('hidden');
+    canvas.classList.add('live');
+    liveDot.style.background = '#7fc87b';
+    liveDot.style.boxShadow = '0 0 14px rgba(127,200,123,0.7)';
+    camLabel.textContent = 'LIVE';
+    renderLoop();
+  } catch (err) {
+    loaderText.textContent = 'Camera access denied or AI model failed to load';
+    console.error(err);
+    toast('Could not access camera or load AI model');
+  }
+}
+
+function stopCamera() {
+  loopRunning = false;
+  streaming = false;
+  if (rawVideo.srcObject) {
+    rawVideo.srcObject.getTracks().forEach(t => t.stop());
+    rawVideo.srcObject = null;
+  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.classList.remove('live');
+  loader.classList.remove('hidden');
+  loaderText.textContent = 'Camera off';
+  liveDot.style.background = '#ff3b3b';
+  liveDot.style.boxShadow = '0 0 14px rgba(255,59,59,0.7)';
+  camLabel.textContent = 'OFF';
+  prevBtnEl.classList.remove('gesture-hover');
+  nextBtnEl.classList.remove('gesture-hover');
+  handWasInside = { left: false, right: false };
+}
+
+window.toggleCamera = function () {
+  camSwitch.checked ? startCamera() : stopCamera();
+};
+
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+function checkLowLight(now) {
+  if (now - lastLightCheck < 500) return;
+  lastLightCheck = now;
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let sum = 0, n = 0;
+  const sampleStride = 40;
+  for (let i = 0; i < data.length; i += 4 * sampleStride) {
+    sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+    n++;
+  }
+  const mean = n ? sum / n : 255;
+  lightWarning.style.display = mean < LOW_LIGHT_THRESHOLD ? 'block' : 'none';
+}
+
+function landmarkToScreenPoint(lm) {
+  const bufW = canvas.width, bufH = canvas.height;
+  const bufX = bufW - (lm.x * bufW);
+  const bufY = lm.y * bufH;
+
+  const rect = canvas.getBoundingClientRect();
+  const scale = Math.max(rect.width / bufW, rect.height / bufH);
+  const dispW = bufW * scale, dispH = bufH * scale;
+  const offsetX = (dispW - rect.width) / 2;
+  const offsetY = (dispH - rect.height) / 2;
+
+  return { x: rect.left + bufX * scale - offsetX, y: rect.top + bufY * scale - offsetY };
+}
+
+function pointInRect(pt, rect) {
+  return pt.x >= rect.left && pt.x <= rect.right && pt.y >= rect.top && pt.y <= rect.bottom;
+}
+
+function checkGestureButtons(handResult) {
+  if (!handResult?.landmarks?.length) {
+    if (handWasInside.left || handWasInside.right) {
+      prevBtnEl.classList.remove('gesture-hover');
+      nextBtnEl.classList.remove('gesture-hover');
+      handWasInside = { left: false, right: false };
+    }
+    return;
+  }
+
+  const leftRect = prevBtnEl.getBoundingClientRect();
+  const rightRect = nextBtnEl.getBoundingClientRect();
+  const now = performance.now();
+  const insideNow = { left: false, right: false };
+
+  for (const lm of handResult.landmarks) {
+    const tip = landmarkToScreenPoint(lm[INDEX_FINGERTIP]);
+    if (pointInRect(tip, leftRect)) insideNow.left = true;
+    if (pointInRect(tip, rightRect)) insideNow.right = true;
+  }
+
+  prevBtnEl.classList.toggle('gesture-hover', insideNow.left);
+  nextBtnEl.classList.toggle('gesture-hover', insideNow.right);
+
+  if (insideNow.left && !handWasInside.left && (now - lastButtonTime) > BUTTON_COOLDOWN_MS) {
+    lastButtonTime = now;
+    window.changeCloth(-1);
+  }
+  if (insideNow.right && !handWasInside.right && (now - lastButtonTime) > BUTTON_COOLDOWN_MS) {
+    lastButtonTime = now;
+    window.changeCloth(1);
+  }
+  handWasInside = insideNow;
+}
+
+function drawFrame(poseResult) {
+  const w = canvas.width, h = canvas.height;
+  ctx.save();
+  ctx.translate(w, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(rawVideo, 0, 0, w, h);
+
+  const lm = poseResult?.landmarks?.[0];
+  const meta = clothMeta[curId];
+
+  if (lm && meta && meta.drawable) {
+    missedPoseFrames = 0;
+    const ls = { x: lm[LEFT_SHOULDER].x * w, y: lm[LEFT_SHOULDER].y * h };
+    const rs = { x: lm[RIGHT_SHOULDER].x * w, y: lm[RIGHT_SHOULDER].y * h };
+    const lh = { x: lm[LEFT_HIP].x * w, y: lm[LEFT_HIP].y * h };
+    const rh = { x: lm[RIGHT_HIP].x * w, y: lm[RIGHT_HIP].y * h };
+
+    const shoulderCenter = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
+    const shoulderDist = Math.max(40, dist(ls, rs));
+    const hipMid = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
+
+    const targetW = shoulderDist * WIDTH_SCALE;
+    const targetH = Math.max(1, dist(shoulderCenter, hipMid) * HEIGHT_SCALE);
+
+    const neckY = shoulderCenter.y - shoulderDist * NECK_OFFSET_FACTOR;
+    const collarOffset = meta.collarTopFrac * targetH;
+    const topY = neckY - collarOffset;
+    const topX = shoulderCenter.x - meta.centroidXFrac * targetW;
+
+    if (smoothX === null) {
+      smoothX = topX; smoothY = topY; smoothW = targetW; smoothH = targetH;
+    } else {
+      smoothX += SMOOTH_ALPHA * (topX - smoothX);
+      smoothY += SMOOTH_ALPHA * (topY - smoothY);
+      smoothW += SMOOTH_ALPHA * (targetW - smoothW);
+      smoothH += SMOOTH_ALPHA * (targetH - smoothH);
+    }
+  } else if (smoothX !== null) {
+    missedPoseFrames++;
+    if (missedPoseFrames > MAX_MISSED_POSE_FRAMES) smoothX = null;
+  }
+
+  if (meta && meta.drawable && smoothX !== null && missedPoseFrames <= MAX_MISSED_POSE_FRAMES) {
+    ctx.drawImage(meta.drawable, smoothX, smoothY, smoothW, smoothH);
+  }
+  ctx.restore();
+
+  checkLowLight(performance.now());
+
+  frameCount++;
+  const now = performance.now();
+  if (now - lastFpsTime >= 1000) {
+    fpsBadge.textContent = frameCount + ' fps (this device)';
+    fpsSamples.push(frameCount);
+    frameCount = 0; lastFpsTime = now;
+  }
+}
+
+function renderLoop() {
+  if (!loopRunning) return;
+  if (rawVideo.currentTime !== lastVideoTime) {
+    lastVideoTime = rawVideo.currentTime;
+    renderFrameIdx++;
+
+    const poseResult = poseLandmarker ? poseLandmarker.detectForVideo(rawVideo, performance.now()) : null;
+    drawFrame(poseResult);
+
+    if (handLandmarker && (renderFrameIdx % HAND_DETECT_EVERY_N_FRAMES === 0)) {
+      const handResult = handLandmarker.detectForVideo(rawVideo, performance.now());
+      checkGestureButtons(handResult);
+    }
+  }
+  requestAnimationFrame(renderLoop);
+}
+
+function updateUI(id) {
+  curId = id;
+  document.querySelectorAll('.cloth-item').forEach((el, i) => el.classList.toggle('active', i === id));
+  const active = document.getElementById(`thumb-${id}`);
+  if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  smoothX = smoothY = smoothW = smoothH = null;
+  missedPoseFrames = 0;
+  ensureGarmentReady(id);
+}
+window.selectCloth = function (idx) {
+  updateUI(idx);
+  toast(clothes[idx] ? clothes[idx].replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') : 'Selected');
+};
+window.changeCloth = function (delta) {
+  if (!clothes.length) return;
+  window.selectCloth((curId + delta + clothes.length) % clothes.length);
+};
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') window.changeCloth(1);
+  if (e.key === 'ArrowLeft') window.changeCloth(-1);
+});
+window.addEventListener('beforeunload', () => { sendTelemetry(); stopCamera(); });
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.opacity = '1';
+  el.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(-50%) translateY(12px)';
+  }, 1800);
+}
+
+async function sendTelemetry() {
+  if (fpsSamples.length === 0) return;
+  const avg = fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length;
+  const min = Math.min(...fpsSamples);
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return;
+    await fetch('/telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        mode: 'browser',
+        fps_avg: Math.round(avg),
+        fps_min: min,
+        device: navigator.userAgent,
+        gpu_delegate: gpuDelegateUsed,
+      }),
+      keepalive: true,
+    });
+  } catch (e) { /* best-effort */ }
+  fpsSamples = [];
+}
+setInterval(sendTelemetry, 30000);
+
+function showInstructions() { instructionsOverlay.classList.add('show'); }
+function hideInstructions() { instructionsOverlay.classList.remove('show'); }
+instructionsGotIt.addEventListener('click', () => {
+  try { localStorage.setItem(SEEN_INSTRUCTIONS_KEY, '1'); } catch (e) {}
+  hideInstructions();
+  startCamera();
+});
+helpBtn.addEventListener('click', showInstructions);
+
+// Only load the wardrobe / start the camera once we know the user is signed in.
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = '/login.html';
+    return;
+  }
+
+  loaderText.textContent = 'Ready';
+  loadClothes();
+
+  let alreadySeen = false;
+  try { alreadySeen = localStorage.getItem(SEEN_INSTRUCTIONS_KEY) === '1'; } catch (e) {}
+
+  if (alreadySeen) startCamera();
+  else showInstructions();
+});
+</script>
+</body>
+</html>

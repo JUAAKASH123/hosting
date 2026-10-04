@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="VirtuFit is an AI-powered virtual dressing room — try on clothes instantly with your webcam, switch outfits with hand gestures, no app or download required.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%237c4dff'/%3E%3C/svg%3E">
+<title>VirtuFit | AI Virtual Dressing Room</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="preconnect" href="https://www.gstatic.com">
+<link rel="preload" href="/assets/video/hero.mp4" as="video" type="video/mp4">
+<link rel="preload" href="/assets/image/logo.png" as="image">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html{overflow-x:hidden;width:100%;}
+:root{--bg:#e8e4f5;--purple:#7c4dff;--purple2:#b39dff;--dark:#12002e;--glow:rgba(124,77,255,.55);--glow2:rgba(179,157,255,.35);}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--dark);overflow-x:hidden;min-height:100vh;width:100%;}
+img{max-width:100%;}
+
+/* HERO */
+.hero-wrapper{position:relative;width:100%;height:100vh;height:100svh;min-height:560px;overflow:hidden;display:flex;flex-direction:column;}
+.hero-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:0;background:var(--dark);}
+.hero-overlay{display:none;}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(124,77,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(124,77,255,.07) 1px,transparent 1px);background-size:60px 60px;z-index:2;pointer-events:none;}
+
+/* NAV */
+nav{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:14px 6%;background:rgba(18,0,46,.25);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid rgba(124,77,255,.18);gap:20px;flex-wrap:nowrap;}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0;}
+.nav-logo img{height:48px;width:auto;object-fit:contain;filter:drop-shadow(0 0 8px rgba(124,77,255,.6));transition:filter .3s,transform .3s;}
+.nav-logo:hover img{filter:drop-shadow(0 0 16px rgba(179,157,255,.9));transform:scale(1.05);}
+.nav-logo-text{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;}
+.nav-logo-text span{color:var(--purple2);}
+.nav-right{display:flex;align-items:center;gap:40px;}
+.nav-links{display:flex;gap:32px;align-items:center;}
+.nav-links a{text-decoration:none;font-size:14px;font-weight:600;color:rgba(255,255,255,.75);transition:color .2s;position:relative;padding-bottom:2px;}
+.nav-links a::after{content:"";position:absolute;bottom:0;left:0;width:0;height:2px;border-radius:2px;background:var(--purple2);box-shadow:0 0 8px var(--glow);transition:width .25s;}
+.nav-links a:hover{color:#fff;}
+.nav-links a:hover::after{width:100%;}
+.nav-cta{padding:10px 24px;border-radius:50px;background:var(--purple);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 20px var(--glow),0 0 0 1px rgba(255,255,255,.15) inset;transition:transform .2s,box-shadow .2s;text-decoration:none;white-space:nowrap;flex-shrink:0;}
+.nav-cta:hover{transform:translateY(-2px);box-shadow:0 8px 30px var(--glow),0 0 40px var(--glow2);}
+.mobile-cta{display:none;}
+.nav-hamburger{display:none;flex-direction:column;justify-content:center;align-items:center;gap:5px;width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);cursor:pointer;flex-shrink:0;padding:0;}
+.nav-hamburger span{display:block;width:18px;height:2px;background:#fff;border-radius:2px;transition:transform .25s ease,opacity .25s ease;}
+.nav-hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+.nav-hamburger.open span:nth-child(2){opacity:0;}
+.nav-hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+.mobile-menu{display:none;position:absolute;top:100%;left:0;right:0;z-index:9;background:rgba(18,0,46,.96);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid rgba(124,77,255,.25);flex-direction:column;padding:8px 6% 20px;max-height:0;overflow:hidden;transition:max-height .3s ease;}
+.mobile-menu.open{display:flex;max-height:400px;}
+.mobile-menu a{color:rgba(255,255,255,.85);text-decoration:none;font-size:15px;font-weight:600;padding:14px 4px;border-bottom:1px solid rgba(255,255,255,.08);}
+.mobile-menu a:last-child{border-bottom:none;}
+
+/* HERO CONTENT */
+.hero-content{position:relative;z-index:5;flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:0 6% 80px;max-width:700px;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:50px;margin-bottom:28px;background:rgba(124,77,255,.2);border:1px solid rgba(124,77,255,.4);font-size:12px;font-weight:700;letter-spacing:.05em;color:var(--purple);text-transform:uppercase;}
+.hero-badge .blink{width:7px;height:7px;border-radius:50%;background:var(--purple2);box-shadow:0 0 8px var(--purple2);animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.hero-content h1{font-size:clamp(34px,5.5vw,78px);font-weight:900;line-height:1.06;letter-spacing:-1.5px;color:var(--dark);margin-bottom:22px;text-shadow:0 2px 20px rgba(255,255,255,.5);word-wrap:break-word;}
+.hero-content h1 em{font-style:italic;color:var(--purple);}
+.hero-content p{font-size:17px;color:#3a2f5a;line-height:1.7;max-width:440px;margin-bottom:42px;}
+.hero-btns{display:flex;gap:16px;flex-wrap:wrap;width:100%;}
+.btn-primary{padding:16px 34px;border-radius:50px;background:linear-gradient(135deg,var(--purple),#9c6fff);color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;box-shadow:0 8px 30px var(--glow),0 0 0 1px rgba(255,255,255,.2) inset;transition:transform .2s,box-shadow .2s;text-decoration:none;display:inline-flex;align-items:center;gap:8px;position:relative;overflow:hidden;}
+.btn-primary::before{content:"";position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transition:.5s;}
+.btn-primary:hover::before{left:100%;}
+.btn-primary:hover{transform:translateY(-3px);box-shadow:0 14px 40px var(--glow);}
+.btn-secondary{padding:14px 34px;border-radius:50px;background:rgba(255,255,255,.35);color:var(--dark);font-size:15px;font-weight:700;border:1.5px solid rgba(124,77,255,.3);cursor:pointer;backdrop-filter:blur(10px);transition:all .25s;text-decoration:none;display:inline-flex;align-items:center;gap:8px;}
+.btn-secondary:hover{border-color:var(--purple2);background:rgba(124,77,255,.2);transform:translateY(-3px);}
+
+/* USER BADGE + POPUP */
+.user-badge{position:relative;cursor:pointer;display:flex;align-items:center;gap:10px;padding:6px 18px 6px 6px;border-radius:50px;background:rgba(255,255,255,.12);border:1px solid rgba(124,77,255,.35);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);white-space:nowrap;flex-shrink:0;}
+.user-badge img{width:32px;height:32px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.65);box-shadow:0 0 10px rgba(124,77,255,.4);flex-shrink:0;}
+.user-badge span{font-size:14px;font-weight:700;color:#fff;}
+.profile-popup{position:absolute;top:calc(100% + 14px);right:0;width:260px;background:rgba(18,0,46,.92);border:1px solid rgba(124,77,255,.35);border-radius:20px;padding:22px 20px 18px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 24px 60px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.04) inset;opacity:0;visibility:hidden;transform:translateY(-10px) scale(.97);transform-origin:top right;transition:opacity .22s ease,transform .22s ease,visibility .22s;z-index:100;text-align:center;cursor:default;}
+.profile-popup::before{content:"";position:absolute;top:-7px;right:22px;width:14px;height:14px;background:rgba(18,0,46,.92);border-left:1px solid rgba(124,77,255,.35);border-top:1px solid rgba(124,77,255,.35);transform:rotate(45deg);}
+.profile-popup.show{opacity:1;visibility:visible;transform:translateY(0) scale(1);}
+.popup-avatar{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid rgba(179,157,255,.65);box-shadow:0 0 18px rgba(124,77,255,.45);margin:0 auto 14px;display:block;}
+.popup-name{font-size:16px;font-weight:800;color:#fff;margin-bottom:4px;letter-spacing:-.2px;}
+.popup-email{font-size:13px;color:rgba(255,255,255,.5);margin-bottom:18px;word-break:break-word;}
+.popup-action-btn{width:100%;padding:11px 0;border-radius:50px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:transform .2s,box-shadow .2s;font-family:'Inter',sans-serif;}
+.popup-action-btn.logout{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.18);}
+.popup-action-btn.logout:hover{background:rgba(255,80,80,.15);border-color:rgba(255,80,80,.4);transform:translateY(-2px);}
+.popup-action-btn.login{background:linear-gradient(135deg,var(--purple),#9c6fff);color:#fff;box-shadow:0 4px 20px var(--glow);text-decoration:none;display:inline-block;}
+.popup-action-btn.login:hover{transform:translateY(-2px);box-shadow:0 8px 28px var(--glow);}
+
+.scroll-hint{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:.6;animation:scrollBob 2s ease-in-out infinite;}
+@keyframes scrollBob{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(6px);}}
+.scroll-hint span{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#fff;}
+.scroll-hint svg{width:20px;height:20px;stroke:#fff;fill:none;}
+
+body::before,body::after{content:"";position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0;}
+body::before{width:600px;height:600px;top:-120px;right:-100px;background:radial-gradient(circle,rgba(124,77,255,.18),transparent 70%);}
+body::after{width:500px;height:500px;bottom:-80px;left:-80px;background:radial-gradient(circle,rgba(179,157,255,.14),transparent 70%);}
+
+/* HOW TO USE */
+.how-to-use{position:relative;z-index:1;padding:0;background:rgba(255,255,255,.3);border-top:1px solid rgba(124,77,255,.12);border-bottom:1px solid rgba(124,77,255,.12);backdrop-filter:blur(10px);overflow:hidden;}
+.htu-layout{display:grid;grid-template-columns:minmax(280px,38%) 1fr;align-items:stretch;}
+.htu-video-wrap{position:relative;overflow:hidden;height:100%;width:100%;opacity:0;transform:translateX(-40px);background:var(--dark);}
+.htu-video{width:100%;height:100%;object-fit:cover;display:block;background:#f0eefa;}
+.htu-right{padding:48px 6% 48px 48px;}
+.htu-reverse{grid-template-columns:1fr minmax(280px,38%);}
+.htu-reverse .htu-right{padding:48px 48px 48px 6%;}
+.htu-reverse .htu-video-wrap{transform:translateX(40px);}
+.htu-right .section-label{justify-content:flex-start;}
+.how-to-use .section-label{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.how-to-use .section-label span{height:1px;width:40px;background:linear-gradient(90deg,transparent,var(--purple));}
+.how-to-use .section-label em{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);font-style:normal;}
+.how-to-use h2{text-align:left;font-size:30px;font-weight:900;margin-bottom:28px;letter-spacing:-1px;color:var(--dark);}
+.how-to-use .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;}
+.flip-card{height:190px;perspective:1000px;cursor:pointer;}
+.flip-inner{position:relative;width:100%;height:100%;transition:transform .7s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d;}
+.flip-card:hover .flip-inner,.flip-card.flipped .flip-inner{transform:rotateY(180deg);}
+.flip-front,.flip-back{position:absolute;inset:0;border-radius:24px;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
+.flip-front{overflow:hidden;border:1px solid rgba(255,255,255,.55);box-shadow:0 8px 30px rgba(124,77,255,.08);background:#f0eefa;}
+.flip-front img{width:100%;height:100%;object-fit:cover;}
+.flip-front h3{position:absolute;bottom:0;left:0;right:0;padding:20px 20px 18px;background:linear-gradient(transparent,rgba(5,0,20,.92));color:#fff;font-size:19px;font-weight:900;letter-spacing:-.3px;text-shadow:0 2px 8px rgba(0,0,0,.6);}
+.flip-back{background:rgba(124,77,255,.12);border:1px solid rgba(124,77,255,.35);backdrop-filter:blur(12px);transform:rotateY(180deg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;}
+.flip-back h3{font-size:18px;font-weight:800;margin-bottom:10px;color:var(--dark);}
+.flip-back p{font-size:14px;color:#6a5f8a;line-height:1.7;}
+
+/* FEATURES */
+.features{position:relative;z-index:1;padding:0;background:var(--bg);overflow:hidden;}
+.features-inner{max-width:1200px;margin:0 auto;}
+.section-label{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;}
+.section-label span{height:1px;width:40px;background:linear-gradient(90deg,transparent,var(--purple));}
+.section-label em{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);font-style:normal;}
+.features h2{text-align:left;font-size:30px;font-weight:900;margin-bottom:28px;letter-spacing:-1px;color:var(--dark);}
+.feature-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;}
+.feature-card{background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.75);border-radius:20px;padding:22px 20px;text-align:left;backdrop-filter:blur(16px);position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(124,77,255,.05);opacity:0;transform:translateY(40px) scale(.96);}
+.feature-card::after{content:"";position:absolute;inset:0;border-radius:24px;background:linear-gradient(135deg,rgba(124,77,255,.07),transparent 60%);opacity:0;transition:opacity .4s;}
+.feature-card:hover::after{opacity:1;}
+.feature-card:hover{box-shadow:0 24px 50px rgba(124,77,255,.15);border-color:rgba(124,77,255,.28);}
+.fc-accent{position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--purple2));border-radius:24px 24px 0 0;transform:scaleX(0);transform-origin:left;transition:transform .45s cubic-bezier(.4,0,.2,1);}
+.feature-card:hover .fc-accent{transform:scaleX(1);}
+.feat-icon-bg{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,rgba(124,77,255,.14),rgba(179,157,255,.08));border:1px solid rgba(124,77,255,.18);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:16px;transition:box-shadow .35s,transform .35s;}
+.feature-card:hover .feat-icon-bg{box-shadow:0 0 22px var(--glow);transform:scale(1.08) rotate(-4deg);}
+.feature-card h3{font-size:16px;font-weight:900;margin-bottom:8px;color:var(--dark);letter-spacing:-.2px;}
+.feature-card p{font-size:13px;color:#6a5f8a;line-height:1.7;}
+@media(max-width:540px){.feature-grid{grid-template-columns:1fr;}}
+
+/* HOW IT WORKS */
+.how{position:relative;z-index:1;padding:110px 6%;background:linear-gradient(160deg,#0f0b24 0%,#1a0f3a 100%);overflow:hidden;}
+.how::before{content:"";position:absolute;top:-200px;right:-200px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(124,77,255,.2),transparent 70%);pointer-events:none;}
+.how::after{content:"";position:absolute;bottom:-150px;left:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(179,157,255,.1),transparent 70%);pointer-events:none;}
+.how-head{text-align:center;margin-bottom:72px;position:relative;z-index:1;}
+.how-head h2{font-size:42px;font-weight:900;letter-spacing:-1.5px;color:#fff;margin-bottom:10px;}
+.how-head p{font-size:16px;color:rgba(255,255,255,.4);max-width:460px;margin:0 auto;}
+.pipeline-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0;max-width:1200px;margin:0 auto;position:relative;z-index:1;}
+.pipeline-grid::before{content:"";position:absolute;top:52px;left:8%;right:8%;height:1px;background:linear-gradient(90deg,transparent,var(--purple),var(--purple2),var(--purple),transparent);box-shadow:0 0 18px var(--glow);z-index:0;}
+.pipe-node{display:flex;flex-direction:column;align-items:center;padding:0 10px;position:relative;z-index:1;opacity:0;transform:translateY(40px);}
+.pipe-icon-wrap{width:104px;height:104px;border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.04),rgba(124,77,255,.1));border:1px solid rgba(124,77,255,.22);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:22px;transition:transform .3s,border-color .35s,box-shadow .35s;backdrop-filter:blur(14px);}
+.pipe-icon-wrap:hover{transform:translateY(-10px) scale(1.05);border-color:var(--purple);box-shadow:0 0 0 1px rgba(124,77,255,.3),0 24px 54px rgba(124,77,255,.28),0 0 80px rgba(124,77,255,.12);}
+.pipe-num{font-size:10px;font-weight:800;letter-spacing:.12em;color:rgba(179,157,255,.55);text-transform:uppercase;margin-bottom:5px;}
+.pipe-emoji{font-size:30px;line-height:1;}
+.pipe-node h4{font-size:13px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px;}
+.pipe-node p{font-size:11.5px;color:rgba(255,255,255,.38);text-align:center;line-height:1.6;}
+.pipe-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-top:10px;}
+.pipe-tags span{font-size:10px;font-weight:600;color:var(--purple2);background:rgba(124,77,255,.14);border:1px solid rgba(124,77,255,.22);border-radius:5px;padding:2px 7px;}
+@media(max-width:900px){.pipeline-grid{grid-template-columns:1fr 1fr;gap:24px;}.pipeline-grid::before{display:none;}}
+@media(max-width:500px){.pipeline-grid{grid-template-columns:1fr;}}
+
+/* CTA */
+.cta-section{position:relative;z-index:1;text-align:center;padding:100px 6%;overflow:hidden;}
+.cta-section::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:300px;background:radial-gradient(ellipse,rgba(124,77,255,.15),transparent 70%);filter:blur(40px);pointer-events:none;}
+.cta-section h2{font-size:44px;font-weight:900;letter-spacing:-1.5px;margin-bottom:16px;color:var(--dark);position:relative;}
+.cta-section p{font-size:17px;color:#6a5f8a;margin:0 auto 40px;max-width:520px;position:relative;}
+
+/* FOOTER */
+footer{position:relative;z-index:1;background:linear-gradient(180deg,#0f0b24,#130d2e);padding:56px 6% 30px;border-radius:36px 36px 0 0;margin-top:60px;border-top:1px solid rgba(124,77,255,.25);box-shadow:0 -10px 60px rgba(124,77,255,.1);}
+footer::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:60%;height:1px;background:linear-gradient(90deg,transparent,var(--purple),var(--purple2),transparent);}
+.footer-inner{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:40px;margin-bottom:40px;}
+.footer-logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.footer-logo img{height:46px;width:auto;object-fit:contain;filter:brightness(0) invert(1) drop-shadow(0 0 8px rgba(167,139,250,.5));transition:filter .3s;}
+.footer-logo:hover img{filter:brightness(0) invert(1) drop-shadow(0 0 16px rgba(167,139,250,.9));}
+.footer-logo-text{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;}
+.footer-logo-text span{color:#a78bfa;}
+.footer-desc{font-size:14px;color:#6a5f8a;margin-top:12px;max-width:260px;line-height:1.65;}
+.footer-col h5{color:#fff;font-size:14px;font-weight:700;margin-bottom:20px;letter-spacing:.05em;text-transform:uppercase;}
+.footer-links{list-style:none;display:flex;flex-direction:column;gap:12px;}
+.footer-links a{color:#6a5f8a;text-decoration:none;font-size:14px;transition:color .2s,transform .2s;display:inline-block;}
+.footer-links a:hover{color:#fff;transform:translateX(4px);}
+.copyright{text-align:center;font-size:13px;color:#4a4068;border-top:1px solid rgba(255,255,255,.06);padding-top:24px;}
+
+/* PAGE LOADER */
+body.is-loading > *:not(#pageLoader){visibility:hidden;}
+#pageLoader{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#0f0b24 0%,#1a0f3a 100%);transition:opacity .45s ease;}
+#pageLoader.hide{opacity:0;pointer-events:none;}
+.loader-mark{display:flex;flex-direction:column;align-items:center;gap:18px;}
+.loader-ring{width:44px;height:44px;border-radius:50%;border:3px solid rgba(124,77,255,.25);border-top-color:var(--purple2);animation:loaderSpin .8s linear infinite;}
+@keyframes loaderSpin{to{transform:rotate(360deg);}}
+.loader-mark span{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.6);}
+
+/* RESPONSIVE */
+@media(max-width:1024px){.hero-content{max-width:600px;}}
+@media(max-width:900px){
+  .htu-layout{grid-template-columns:1fr;min-height:auto;}
+  .htu-video-wrap{aspect-ratio:16/9;height:auto;opacity:1;transform:none;}
+  .htu-right,.htu-reverse .htu-right{padding:40px 6%;}
+  .how-to-use h2,.how-to-use .section-label{text-align:center;justify-content:center;}
+  .features .htu-right{order:1;}
+  .features .htu-video-wrap{order:0;aspect-ratio:16/9;}
+  .how{padding:80px 6%;}
+  .how-head h2{font-size:34px;}
+  .cta-section h2{font-size:36px;}
+}
+@media(max-width:1120px){
+  .nav-right{display:none;}
+  .nav-hamburger{display:flex;}
+  .mobile-cta{display:inline-flex;padding:9px 18px;font-size:13px;}
+}
+@media(max-width:768px){
+  nav{padding:12px 5%;gap:12px;}
+  .nav-logo img{height:40px;}
+  .nav-logo-text{font-size:19px;}
+  .hero-wrapper{min-height:520px;}
+  .hero-content{padding:0 6% 60px;max-width:100%;}
+  .hero-content h1{letter-spacing:-1px;}
+  .hero-content p{max-width:100%;}
+  .user-badge span{display:none;}
+  .user-badge{padding:5px;gap:0;}
+  .flip-card{height:170px;}
+}
+@media(max-width:600px){
+  .hero-content h1{font-size:34px;}
+  .hero-btns{flex-direction:column;align-items:stretch;width:100%;}
+  .btn-primary,.btn-secondary{width:100%;max-width:none;justify-content:center;}
+  .features h2,.how h2,.cta-section h2,.how-to-use h2{font-size:26px;}
+  .how-to-use .stats{grid-template-columns:1fr;}
+  .flip-card{height:150px;}
+  .profile-popup{right:-8px;width:calc(100vw - 40px);max-width:260px;}
+  .footer-inner{flex-direction:column;gap:28px;}
+  .footer-col{width:100%;}
+}
+@media(max-width:420px){
+  .hero-badge{font-size:11px;padding:7px 14px;}
+  .hero-content h1{font-size:28px;}
+  .hero-content p{font-size:15px;}
+  .nav-logo-text{display:none;}
+  .mobile-cta{padding:8px 14px;font-size:12px;}
+  .cta-section{padding:70px 6%;}
+  .cta-section h2{font-size:26px;}
+  .pipe-icon-wrap{width:88px;height:88px;}
+  footer{padding:40px 6% 24px;border-radius:24px 24px 0 0;}
+}
+@media(max-width:340px){.user-badge{display:none;}}
+</style>
+</head>
+<body class="is-loading">
+
+<div id="pageLoader">
+  <div class="loader-mark"><div class="loader-ring"></div><span>Loading</span></div>
+</div>
+
+<div class="hero-wrapper">
+  <video class="hero-video" id="heroVideo" autoplay muted loop playsinline preload="auto">
+    <source src="/assets/video/hero.mp4" type="video/mp4">
+  </video>
+  <div class="hero-overlay"></div>
+  <div class="hero-grid"></div>
+
+  <nav>
+    <a href="/home" class="nav-logo">
+      <img src="/assets/image/logo.png" alt="VirtuFit Logo">
+      <span class="nav-logo-text">Virtu<span>Fit</span></span>
+    </a>
+
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="/home">Home</a>
+        <a href="/feature">Features</a>
+        <a href="/about">About</a>
+        <a href="/login.html" id="navLoginLink">Log In</a>
+      </div>
+      <a href="/login.html" class="nav-cta tryon-link">Try Now →</a>
+    </div>
+    <a href="/login.html" class="nav-cta mobile-cta tryon-link">Try Now →</a>
+
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div class="user-badge" id="userBadge">
+      <img id="userAvatar" src="" alt="">
+      <span id="userGreeting">Hi Guest</span>
+      <div class="profile-popup" id="profilePopup">
+        <img id="popupAvatar" class="popup-avatar" src="" alt="">
+        <div id="popupName" class="popup-name">Guest</div>
+        <div id="popupEmail" class="popup-email">Not signed in</div>
+        <button id="popupLogoutBtn" class="popup-action-btn logout" style="display:none;">Log Out</button>
+        <a id="popupLoginBtn" href="/login.html" class="popup-action-btn login" style="display:none;">Log In</a>
+      </div>
+    </div>
+
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="/home">Home</a>
+      <a href="/feature">Features</a>
+      <a href="/about">About</a>
+      <a href="/login.html" id="mobileLoginLink">Log In</a>
+    </div>
+  </nav>
+
+  <div class="hero-content">
+    <div class="hero-badge"><div class="blink"></div>AI Powered Virtual Try-On</div>
+    <h1 id="hero-title">
+      Try Clothes<br>
+      <em>Virtually</em> with AI
+    </h1>
+    <p>Experience the future of fashion. Try outfits instantly using our AI-powered virtual dressing room. No downloads, no hassle.</p>
+    <div class="hero-btns">
+      <a href="/login.html" class="btn-primary tryon-link">Start Virtual Try-On</a>
+      <a href="/howitworks" class="btn-secondary">How It Works</a>
+    </div>
+  </div>
+
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+</div>
+
+<section class="how-to-use">
+  <div class="htu-layout">
+    <div class="htu-video-wrap">
+      <img class="htu-video" src="/assets/image/virtu1.jpg" alt="VirtuFit in action" loading="lazy" decoding="async" width="800" height="900">
+    </div>
+
+    <div class="htu-right">
+      <div class="section-label"><span></span><em>How To Use</em><span style="background:linear-gradient(90deg,var(--purple),transparent);"></span></div>
+      <h2>Get Started in 4 Simple Steps</h2>
+      <div class="stats">
+
+        <div class="flip-card"><div class="flip-inner">
+          <div class="flip-front"><img src="/assets/image/card1.png" alt="Allow Camera" loading="lazy" decoding="async" width="400" height="300"><h3>Allow Camera</h3></div>
+          <div class="flip-back"><div style="font-size:32px;margin-bottom:12px;">📷</div><h3>Allow Camera</h3><p>Click Start and grant camera permission in your browser. No app or download needed.</p></div>
+        </div></div>
+
+        <div class="flip-card"><div class="flip-inner">
+          <div class="flip-front"><img src="/assets/image/card2.png" alt="Pick a Garment" loading="lazy" decoding="async" width="400" height="300"><h3>Pick a Garment</h3></div>
+          <div class="flip-back"><div style="font-size:32px;margin-bottom:12px;">👗</div><h3>Pick a Garment</h3><p>Browse the wardrobe panel on the right and click any outfit thumbnail to try it on.</p></div>
+        </div></div>
+
+        <div class="flip-card"><div class="flip-inner">
+          <div class="flip-front"><img src="/assets/image/card3.png" alt="Use Gestures" loading="lazy" decoding="async" width="400" height="300"><h3>Use Gestures</h3></div>
+          <div class="flip-back"><div style="font-size:32px;margin-bottom:12px;">🤚</div><h3>Use Gestures</h3><p>Hover your left hand over Prev or right hand over Next to switch outfits hands-free.</p></div>
+        </div></div>
+
+        <div class="flip-card"><div class="flip-inner">
+          <div class="flip-front"><img src="/assets/image/card4.png" alt="Keyboard Shortcuts" loading="lazy" decoding="async" width="400" height="300"><h3>Keyboard Shortcuts</h3></div>
+          <div class="flip-back"><div style="font-size:32px;margin-bottom:12px;">⌨️</div><h3>Keyboard Shortcuts</h3><p>Press the ← and → arrow keys to quickly browse through all available outfits.</p></div>
+        </div></div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="features-inner">
+    <div class="htu-layout htu-reverse">
+      <div class="htu-right">
+        <div class="section-label"><span></span><em>Why VirtuFit</em><span style="background:linear-gradient(90deg,var(--purple),transparent);"></span></div>
+        <h2>Built for the Future of Fashion</h2>
+        <div class="feature-grid">
+          <div class="feature-card"><div class="fc-accent"></div><div class="feat-icon-bg">⚡</div><h3>Real-Time Try-On</h3><p>Switch outfits instantly using your camera with zero lag and seamless transitions.</p></div>
+          <div class="feature-card"><div class="fc-accent"></div><div class="feat-icon-bg">📐</div><h3>Accurate Fit</h3><p>AI aligns clothes naturally with your body shape and size for realistic results.</p></div>
+          <div class="feature-card"><div class="fc-accent"></div><div class="feat-icon-bg">👗</div><h3>Smart Wardrobe</h3><p>Browse thousands of outfits with AI-powered style recommendations.</p></div>
+          <div class="feature-card"><div class="fc-accent"></div><div class="feat-icon-bg">🔒</div><h3>Privacy First</h3><p>Frames are processed in real time and never saved — nothing from your session is stored on our servers.</p></div>
+        </div>
+      </div>
+
+      <div class="htu-video-wrap">
+        <video class="htu-video lazy-video" muted loop playsinline preload="none" data-src="/assets/video/Model_changing_outfits_in_studio_202606171128.mp4"></video>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="how">
+  <div class="how-head">
+    <div class="section-label"><span></span><em>Under the Hood</em><span style="background:linear-gradient(90deg,var(--purple),transparent);"></span></div>
+    <h2>How It Works</h2>
+    <p>Five-stage pipeline — webcam frame to dressed-you in milliseconds.</p>
+  </div>
+  <div class="pipeline-grid">
+    <div class="pipe-node"><div class="pipe-icon-wrap"><div class="pipe-num">01</div><div class="pipe-emoji">📡</div></div><h4>Frame Capture</h4><p>Webcam frame POSTed to FastAPI with session ID &amp; cloth index.</p><div class="pipe-tags"><span>FastAPI</span><span>multipart</span></div></div>
+    <div class="pipe-node"><div class="pipe-icon-wrap"><div class="pipe-num">02</div><div class="pipe-emoji">🦴</div></div><h4>Pose Detection</h4><p>MediaPipe Pose finds shoulders &amp; hips. Kalman filters kill jitter.</p><div class="pipe-tags"><span>MediaPipe</span><span>Kalman</span></div></div>
+    <div class="pipe-node"><div class="pipe-icon-wrap"><div class="pipe-num">03</div><div class="pipe-emoji">📐</div></div><h4>Cloth Scaling</h4><p>Garment resized to shoulder width × torso height, centroid-aligned.</p><div class="pipe-tags"><span>cv2.resize</span><span>moments</span></div></div>
+    <div class="pipe-node"><div class="pipe-icon-wrap"><div class="pipe-num">04</div><div class="pipe-emoji">🤚</div></div><h4>Gesture Control</h4><p>Index fingertip tracked. Hover Prev/Next zones to switch outfits.</p><div class="pipe-tags"><span>MP Hands</span><span>cooldown</span></div></div>
+    <div class="pipe-node"><div class="pipe-icon-wrap"><div class="pipe-num">05</div><div class="pipe-emoji">✨</div></div><h4>Alpha Blend</h4><p>GrabCut PNG alpha-blended onto frame, streamed back as JPEG 95%.</p><div class="pipe-tags"><span>GrabCut</span><span>imencode</span></div></div>
+  </div>
+</section>
+
+<section class="cta-section">
+  <h2>Ready to Transform<br>Your Shopping?</h2>
+  <p>Join thousands of users already experiencing fashion in a whole new way.</p>
+  <a href="/login.html" class="btn-primary tryon-link" style="font-size:16px;padding:18px 44px;">🚀 Start Free Trial</a>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div>
+      <a href="/home" class="footer-logo">
+        <img src="/assets/image/logo.png" alt="VirtuFit Logo" loading="lazy" decoding="async">
+        <span class="footer-logo-text">Virtu<span>Fit</span></span>
+      </a>
+      <div class="footer-desc">Revolutionizing fashion with AI-powered virtual try-on technology.</div>
+    </div>
+    <div class="footer-col">
+      <h5>Navigate</h5>
+      <ul class="footer-links">
+        <li><a href="/home">Home</a></li><li><a href="/feature">Features</a></li>
+        <li><a href="/howitworks">How It Works</a></li><li><a href="/login.html" class="tryon-link">Try Now</a></li>
+        <li><a href="/about">About</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h5>Contact</h5>
+      <ul class="footer-links">
+        <li><a href="mailto:aakashudai001@gmail.com">aakashudai001@gmail.com</a></li>
+        <li><a href="#">Kerala, India</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="copyright">© 2026 VirtuFit • AI Virtual Dressing Room • Built by <strong style="color:#a78bfa">Aakash Udai</strong></div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" defer></script>
+<script src="https://unpkg.com/split-type" defer></script>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  // If the animation libraries failed to load (blocked CDN, offline), show
+  // everything that starts hidden instead of leaving the page half-empty.
+  if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
+    document.querySelectorAll(".feature-card,.pipe-node,.htu-video-wrap").forEach(el => {
+      el.style.opacity = 1; el.style.transform = "none";
+    });
+    return;
+  }
+  gsap.registerPlugin(ScrollTrigger);
+
+  /* Hero entrance */
+  const heroTl = gsap.timeline();
+  heroTl.set(".hero-badge, .hero-content p, .hero-btns a", { opacity: 0, y: 20 });
+  if (typeof SplitType !== "undefined") {
+    const split = new SplitType("#hero-title", { types: "chars" });
+    heroTl.set(split.chars, { opacity: 0, y: 80, rotateX: -90 })
+          .to(split.chars, { opacity: 1, y: 0, rotateX: 0, duration: 0.8, stagger: 0.03, ease: "back.out(1.7)", delay: 0.2 });
+  }
+  heroTl
+    .to(".hero-badge", { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, "-=0.2")
+    .to(".hero-content p", { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, "-=0.1")
+    .to(".hero-btns a", { opacity: 1, y: 0, duration: 0.5, stagger: 0.15, ease: "back.out(1.5)" }, "-=0.2");
+
+  /* Image/video slide in */
+  gsap.utils.toArray(".htu-layout").forEach(layout => {
+    const media = layout.querySelector(".htu-video-wrap");
+    if (!media) return;
+    gsap.to(media, { scrollTrigger: { trigger: layout, start: "top 78%" }, opacity: 1, x: 0, duration: 1, ease: "power3.out" });
+  });
+
+  /* Feature cards */
+  gsap.to(".feature-card", {
+    scrollTrigger: { trigger: ".feature-grid", start: "top 80%" },
+    opacity: 1, y: 0, scale: 1, duration: 0.75, stagger: { amount: 0.45, from: "start" }, ease: "power3.out"
+  });
+
+  /* Section headings */
+  gsap.utils.toArray(".section-label, .features h2, .how-to-use h2").forEach(el => {
+    gsap.from(el, { scrollTrigger: { trigger: el, start: "top 88%" }, opacity: 0, y: 28, duration: 0.65, ease: "power2.out" });
+  });
+
+  gsap.from(".how-head h2, .how-head p, .how-head .section-label", {
+    scrollTrigger: { trigger: ".how-head", start: "top 82%" },
+    opacity: 0, y: 36, duration: 0.7, stagger: 0.12, ease: "power3.out"
+  });
+
+  /* Pipeline nodes */
+  gsap.to(".pipe-node", {
+    scrollTrigger: { trigger: ".pipeline-grid", start: "top 78%" },
+    opacity: 1, y: 0, duration: 0.7, stagger: 0.13, ease: "back.out(1.4)"
+  });
+
+  document.querySelectorAll(".pipe-icon-wrap").forEach((el, i) => {
+    gsap.fromTo(el,
+      { boxShadow: "0 0 0px rgba(124,77,255,0)" },
+      { boxShadow: "0 0 30px rgba(124,77,255,0.22)", duration: 1.2, delay: i * 0.13,
+        scrollTrigger: { trigger: el, start: "top 85%" }, ease: "power2.out" }
+    );
+  });
+});
+
+/* Mobile hamburger menu */
+(function () {
+  const btn = document.getElementById("navHamburger");
+  const menu = document.getElementById("mobileMenu");
+  if (!btn || !menu) return;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = menu.classList.toggle("open");
+    btn.classList.toggle("open", isOpen);
+    btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  });
+  menu.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", () => {
+    menu.classList.remove("open");
+    btn.classList.remove("open");
+    btn.setAttribute("aria-expanded", "false");
+  });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 768) {
+      menu.classList.remove("open");
+      btn.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+  });
+})();
+
+/* Flip cards: tap-to-flip on touch devices */
+(function () {
+  if (!("ontouchstart" in window)) return;
+  document.querySelectorAll(".flip-card").forEach(card => {
+    card.addEventListener("click", () => card.classList.toggle("flipped"));
+  });
+})();
+
+/* Lazy-start below-the-fold videos */
+(function () {
+  const lazyVideos = document.querySelectorAll("video.lazy-video[data-src]");
+  if (!lazyVideos.length) return;
+  if (!("IntersectionObserver" in window)) {
+    lazyVideos.forEach(v => { v.src = v.dataset.src; v.load(); });
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const v = entry.target;
+      if (v.dataset.loaded) return;
+      v.dataset.loaded = "true";
+      v.src = v.dataset.src;
+      v.load();
+      v.play().catch(() => {});
+      io.unobserve(v);
+    });
+  }, { rootMargin: "300px 0px" });
+  lazyVideos.forEach(v => io.observe(v));
+})();
+
+/* Page loader: reveal once the hero video + logo are ready (2.5s safety net) */
+(function () {
+  const loader = document.getElementById("pageLoader");
+  const heroVideo = document.getElementById("heroVideo");
+  if (!loader) return;
+
+  const reveal = () => {
+    document.body.classList.remove("is-loading");
+    loader.classList.add("hide");
+    setTimeout(() => loader.remove(), 500);
+  };
+
+  const imgPromises = ["/assets/image/logo.png"].map(src => new Promise(resolve => {
+    const img = new Image();
+    img.onload = resolve;
+    img.onerror = resolve;
+    img.src = src;
+  }));
+
+  const videoPromise = new Promise(resolve => {
+    if (!heroVideo) { resolve(); return; }
+    if (heroVideo.readyState >= 3) { resolve(); return; }
+    heroVideo.addEventListener("canplay", resolve, { once: true });
+    heroVideo.addEventListener("error", resolve, { once: true });
+  });
+
+  const timeout = new Promise(resolve => setTimeout(resolve, 2500));
+  Promise.race([Promise.all([...imgPromises, videoPromise]), timeout]).then(reveal);
+})();
+</script>
+
+<!-- Firebase auth badge. FIX: ONE merged import (the old file imported
+     getAuth/onAuthStateChanged twice, a SyntaxError that stopped this whole
+     module, so the badge stayed on "Hi Guest" even when logged in). -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDlE6L0y2wXNUaO1Sp9Rk0VA_xtHv6Jcdc",
+  authDomain: "virtufit-31a97.firebaseapp.com",
+  projectId: "virtufit-31a97",
+  storageBucket: "virtufit-31a97.firebasestorage.app",
+  messagingSenderId: "486731377920",
+  appId: "1:486731377920:web:6d01e39374e5fd08ead7e5",
+  measurementId: "G-XLQXGQ9V98"
+};
+
+const auth = getAuth(initializeApp(firebaseConfig));
+setPersistence(auth, browserLocalPersistence).catch(e => console.warn("Persistence setup failed:", e));
+
+const userBadge      = document.getElementById("userBadge");
+const userAvatar     = document.getElementById("userAvatar");
+const userGreeting   = document.getElementById("userGreeting");
+const profilePopup   = document.getElementById("profilePopup");
+const popupAvatar    = document.getElementById("popupAvatar");
+const popupName      = document.getElementById("popupName");
+const popupEmail     = document.getElementById("popupEmail");
+const popupLogoutBtn = document.getElementById("popupLogoutBtn");
+const popupLoginBtn  = document.getElementById("popupLoginBtn");
+const loginLink       = document.getElementById("navLoginLink");
+const mobileLoginLink = document.getElementById("mobileLoginLink");
+
+function avatarFor(name) {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c4dff&color=fff&bold=true&size=64`;
+}
+
+async function doLogout(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  try { await signOut(auth); } catch (err) { console.warn("Sign out failed:", err); }
+  window.location.reload();
+}
+
+function renderGuest() {
+  userGreeting.textContent = "Hi Guest";
+  userAvatar.src = avatarFor("Guest");
+  userAvatar.alt = "Guest";
+  userBadge.style.display = "flex";
+
+  popupAvatar.src = avatarFor("Guest");
+  popupAvatar.alt = "Guest";
+  popupName.textContent = "Guest";
+  popupEmail.textContent = "Not signed in";
+  popupLogoutBtn.style.display = "none";
+  popupLoginBtn.style.display = "inline-block";
+
+  [loginLink, mobileLoginLink].forEach(a => {
+    if (!a) return;
+    a.textContent = "Log In";
+    a.href = "/login.html";
+    a.onclick = null;
+  });
+}
+
+function renderUser(user) {
+  const displayName = user.displayName || (user.email ? user.email.split("@")[0] : "there");
+  userGreeting.textContent = `Hi ${displayName}`;
+  userAvatar.src = user.photoURL || avatarFor(displayName);
+  userAvatar.alt = displayName;
+  userBadge.style.display = "flex";
+
+  popupAvatar.src = user.photoURL || avatarFor(displayName);
+  popupAvatar.alt = displayName;
+  popupName.textContent = displayName;
+  popupEmail.textContent = user.email || "No email on file";
+  popupLogoutBtn.style.display = "block";
+  popupLoginBtn.style.display = "none";
+
+  [loginLink, mobileLoginLink].forEach(a => {
+    if (!a) return;
+    a.textContent = "Log Out";
+    a.href = "#";
+    a.onclick = doLogout;
+  });
+}
+
+renderGuest(); // shown until Firebase resolves the auth state
+
+userBadge.addEventListener("click", (e) => {
+  e.stopPropagation();
+  profilePopup.classList.toggle("show");
+});
+profilePopup.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", (e) => {
+  if (!userBadge.contains(e.target)) profilePopup.classList.remove("show");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") profilePopup.classList.remove("show");
+});
+popupLogoutBtn.addEventListener("click", doLogout);
+
+onAuthStateChanged(auth, (user) => {
+  // The try-on page is /tryon-browser (the old /tryon route no longer exists).
+  const target = user ? "/tryon-browser" : "/login.html";
+  document.querySelectorAll(".tryon-link").forEach(a => a.href = target);
+
+  if (user) renderUser(user);
+  else renderGuest();
+});
+</script>
+
+</body>
+</html>

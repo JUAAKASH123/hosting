@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="VirtuFit features — AI-powered virtual dressing room with real-time try-on, gesture control, smart garment rendering and privacy-first processing.">
+<title>VirtuFit | Features</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#e8e4f5;
+  --purple:#7c4dff;
+  --purple2:#b39dff;
+  --dark:#12002e;
+  --muted:#6a5f8a;
+  --white:#fff;
+  --glass:rgba(255,255,255,.52);
+  --line:rgba(124,77,255,.16);
+  --glow:rgba(124,77,255,.38);
+  --radius:28px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;overflow-x:hidden}
+body{
+  font-family:Inter,sans-serif;
+  color:var(--dark);
+  background:
+    radial-gradient(circle at 10% 0%,rgba(179,157,255,.25),transparent 28%),
+    radial-gradient(circle at 90% 20%,rgba(124,77,255,.14),transparent 30%),
+    var(--bg);
+  overflow-x:hidden;
+}
+a{text-decoration:none;color:inherit}
+button{font:inherit}
+.container{width:min(1180px,88%);margin:auto}
+
+/* NAV */
+.nav-wrap{
+  position:sticky;top:0;z-index:100;
+  padding:14px 0;
+  background:rgba(232,228,245,.72);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(124,77,255,.12);
+}
+nav{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo img{width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 0 9px rgba(124,77,255,.5))}
+.logo-text{font-size:22px;font-weight:900;letter-spacing:-.7px}
+.logo-text span{color:var(--purple)}
+.nav-links{display:flex;align-items:center;gap:30px}
+.nav-links a{font-size:14px;font-weight:650;color:#51476e;position:relative;padding:7px 0}
+.nav-links a::after{content:"";position:absolute;left:0;bottom:0;width:0;height:2px;background:var(--purple);border-radius:3px;transition:.25s}
+.nav-links a:hover,.nav-links a.active{color:var(--dark)}
+.nav-links a:hover::after,.nav-links a.active::after{width:100%}
+.nav-cta,.hero-btn,.demo-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:0;border-radius:999px;
+  background:linear-gradient(135deg,var(--purple),#9c6fff);
+  color:#fff;font-weight:800;cursor:pointer;
+  box-shadow:0 10px 30px var(--glow),inset 0 0 0 1px rgba(255,255,255,.2);
+  transition:.25s;
+}
+.nav-cta{padding:11px 23px;font-size:13px}
+.nav-cta:hover,.hero-btn:hover,.demo-btn:hover{transform:translateY(-3px);box-shadow:0 17px 40px var(--glow)}
+.menu-btn{display:none;width:42px;height:42px;border:1px solid var(--line);background:rgba(255,255,255,.5);border-radius:12px}
+
+/* HERO */
+.hero{padding:92px 0 90px;position:relative;overflow:hidden}
+.hero::before{
+  content:"";position:absolute;width:650px;height:650px;right:-250px;top:-250px;
+  background:radial-gradient(circle,rgba(124,77,255,.2),transparent 68%);
+  filter:blur(20px);pointer-events:none
+}
+.hero-grid{display:grid;grid-template-columns:1.02fr .98fr;gap:70px;align-items:center}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;padding:8px 15px;
+  border:1px solid rgba(124,77,255,.28);background:rgba(124,77,255,.1);
+  color:var(--purple);border-radius:999px;font-size:11px;font-weight:800;
+  letter-spacing:.12em;text-transform:uppercase;margin-bottom:23px
+}
+.dot{width:7px;height:7px;background:var(--purple);border-radius:50%;box-shadow:0 0 12px var(--purple)}
+.hero h1{font-size:clamp(45px,6vw,78px);line-height:1.02;letter-spacing:-3px;font-weight:900;max-width:700px}
+.hero h1 .gradient{
+  color:var(--purple);
+  background:linear-gradient(90deg,#6d3cff,#b56dff);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent
+}
+.hero p{margin:24px 0 34px;max-width:580px;color:#655b80;font-size:17px;line-height:1.75}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap}
+.hero-btn{padding:15px 28px;font-size:14px}
+.hero-btn.secondary{
+  background:rgba(255,255,255,.48);color:var(--dark);
+  border:1px solid rgba(124,77,255,.22);box-shadow:none
+}
+.hero-btn.secondary:hover{background:rgba(124,77,255,.1);box-shadow:none}
+
+/* visual */
+.visual{
+  position:relative;min-height:480px;border-radius:34px;
+  background:linear-gradient(145deg,#170735,#29115b);
+  box-shadow:0 35px 80px rgba(43,18,91,.28);
+  overflow:hidden;border:1px solid rgba(179,157,255,.28)
+}
+.visual::before{
+  content:"";position:absolute;width:330px;height:330px;right:-90px;top:-80px;
+  border-radius:50%;background:radial-gradient(circle,rgba(179,157,255,.3),transparent 70%)
+}
+.visual::after{
+  content:"";position:absolute;inset:20px;border:1px solid rgba(255,255,255,.07);
+  border-radius:25px;pointer-events:none
+}
+.visual-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
+.visual-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(18,0,46,.96) 0%,rgba(18,0,46,.5) 52%,rgba(18,0,46,.18) 100%)}
+.visual-content{position:absolute;inset:0;padding:38px;display:flex;flex-direction:column;justify-content:space-between;z-index:2}
+.visual-top{display:flex;justify-content:space-between;align-items:center}
+.status{padding:8px 13px;border-radius:999px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.13);color:#ddd4ff;font-size:11px;font-weight:700}
+.status b{display:inline-block;width:6px;height:6px;border-radius:50%;background:#8cffc1;margin-right:7px;box-shadow:0 0 10px #8cffc1}
+.visual-title{max-width:310px}
+.visual-title small{display:block;color:#b39dff;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;margin-bottom:10px}
+.visual-title h3{color:#fff;font-size:34px;line-height:1.08;letter-spacing:-1.2px}
+.visual-title p{color:rgba(255,255,255,.52);font-size:13px;line-height:1.6;margin-top:13px}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{padding:15px;border-radius:17px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(12px)}
+.stat strong{display:block;color:#fff;font-size:18px}.stat span{display:block;color:rgba(255,255,255,.4);font-size:10px;margin-top:4px}
+
+/* section heading */
+.section{padding:105px 0}
+.section-head{text-align:center;max-width:680px;margin:0 auto 55px}
+.section-kicker{color:var(--purple);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;margin-bottom:12px}
+.section-head h2{font-size:clamp(34px,4vw,50px);letter-spacing:-2px;line-height:1.08}
+.section-head p{color:var(--muted);font-size:15px;line-height:1.75;margin-top:15px}
+
+/* FEATURE CARDS */
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{
+  position:relative;overflow:hidden;min-height:270px;padding:28px;
+  background:rgba(255,255,255,.54);border:1px solid rgba(255,255,255,.78);
+  border-radius:var(--radius);backdrop-filter:blur(18px);
+  box-shadow:0 10px 35px rgba(75,48,125,.06);
+  transition:.35s
+}
+.card:hover{transform:translateY(-8px);box-shadow:0 28px 60px rgba(124,77,255,.15);border-color:rgba(124,77,255,.28)}
+.card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--purple2));transform:scaleX(0);transform-origin:left;transition:.35s}
+.card:hover::before{transform:scaleX(1)}
+.icon{
+  width:55px;height:55px;border-radius:17px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,rgba(124,77,255,.16),rgba(179,157,255,.08));
+  border:1px solid rgba(124,77,255,.18);font-size:23px;margin-bottom:24px;
+  transition:.3s
+}
+.card:hover .icon{transform:rotate(-5deg) scale(1.08);box-shadow:0 0 25px rgba(124,77,255,.3)}
+.card h3{font-size:18px;margin-bottom:10px;letter-spacing:-.4px}
+.card p{font-size:13px;color:var(--muted);line-height:1.75}
+.card .tag{position:absolute;right:22px;top:22px;color:#8b7aa9;font-size:10px;font-weight:800;letter-spacing:.08em}
+
+/* HIGHLIGHT */
+.highlight{padding:0 0 110px}
+.highlight-box{
+  display:grid;grid-template-columns:.85fr 1.15fr;overflow:hidden;border-radius:34px;
+  background:#12002e;box-shadow:0 30px 70px rgba(36,10,80,.24)
+}
+.highlight-copy{padding:58px;color:#fff;display:flex;flex-direction:column;justify-content:center}
+.highlight-copy .section-kicker{color:#b39dff}
+.highlight-copy h2{font-size:40px;line-height:1.08;letter-spacing:-1.5px;margin-bottom:17px}
+.highlight-copy p{color:rgba(255,255,255,.48);font-size:14px;line-height:1.8;margin-bottom:28px}
+.checks{display:grid;gap:12px}
+.check{display:flex;gap:10px;align-items:flex-start;color:rgba(255,255,255,.8);font-size:13px}
+.check i{font-style:normal;width:21px;height:21px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(124,77,255,.2);color:#b39dff;flex:0 0 21px}
+.highlight-media{min-height:440px;position:relative;overflow:hidden}
+.highlight-media video{width:100%;height:100%;object-fit:cover;opacity:.7}
+.highlight-media .media-overlay{position:absolute;inset:0;background:linear-gradient(90deg,#12002e 0%,transparent 45%),linear-gradient(0deg,rgba(18,0,46,.3),transparent)}
+
+/* TECH */
+.tech{background:rgba(255,255,255,.28);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.tech-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.tech-item{
+  padding:21px 14px;text-align:center;border-radius:18px;background:rgba(255,255,255,.48);
+  border:1px solid rgba(255,255,255,.75);font-size:13px;font-weight:800
+}
+.tech-item span{display:block;color:var(--muted);font-size:10px;font-weight:500;margin-top:5px}
+
+/* CTA */
+.cta{padding:110px 0;text-align:center}
+.cta-box{
+  position:relative;overflow:hidden;padding:75px 30px;border-radius:36px;
+  background:linear-gradient(145deg,#17103a,#29115b);
+  box-shadow:0 30px 70px rgba(57,22,117,.22)
+}
+.cta-box::before,.cta-box::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
+.cta-box::before{width:450px;height:450px;left:-220px;top:-220px;background:radial-gradient(circle,rgba(124,77,255,.35),transparent 68%)}
+.cta-box::after{width:400px;height:400px;right:-200px;bottom:-250px;background:radial-gradient(circle,rgba(179,157,255,.25),transparent 68%)}
+.cta-box>*{position:relative;z-index:1}
+.cta-box h2{color:#fff;font-size:clamp(34px,4vw,52px);letter-spacing:-2px}
+.cta-box p{color:rgba(255,255,255,.48);max-width:520px;margin:15px auto 30px;line-height:1.7;font-size:14px}
+.demo-btn{padding:15px 29px}
+
+/* FOOTER */
+footer{background:#0f0b24;color:#fff;padding:55px 0 27px;border-top:1px solid rgba(124,77,255,.2)}
+.footer-grid{display:grid;grid-template-columns:1.5fr .7fr .7fr;gap:50px;margin-bottom:45px}
+.footer-logo{display:flex;align-items:center;gap:10px}
+.footer-logo img{width:45px;filter:brightness(0) invert(1)}
+.footer-logo strong{font-size:21px}.footer-logo strong span{color:#a78bfa}
+.footer-desc{max-width:300px;color:#6a5f8a;font-size:13px;line-height:1.7;margin-top:13px}
+.footer-col h4{font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:17px}
+.footer-col a{display:block;color:#6a5f8a;font-size:13px;margin:10px 0;transition:.2s}
+.footer-col a:hover{color:#fff;transform:translateX(3px)}
+.copyright{text-align:center;border-top:1px solid rgba(255,255,255,.06);padding-top:23px;color:#4d4567;font-size:11px}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(28px)}
+.reveal.show{opacity:1;transform:none;transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
+.card:nth-child(2){transition-delay:.08s}.card:nth-child(3){transition-delay:.16s}
+.card:nth-child(4){transition-delay:.04s}.card:nth-child(5){transition-delay:.12s}.card:nth-child(6){transition-delay:.20s}
+
+/* responsive */
+@media(max-width:900px){
+  .nav-links{display:none}.menu-btn{display:block}
+  .hero{padding:65px 0}.hero-grid{grid-template-columns:1fr;gap:45px}
+  .visual{min-height:420px}
+  .feature-grid{grid-template-columns:repeat(2,1fr)}
+  .highlight-box{grid-template-columns:1fr}.highlight-media{min-height:350px}
+  .tech-grid{grid-template-columns:repeat(3,1fr)}
+  .footer-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:560px){
+  .container{width:90%}
+  .nav-cta{display:none}
+  .hero h1{font-size:43px;letter-spacing:-2px}
+  .hero p{font-size:15px}
+  .visual{min-height:390px;border-radius:26px}.visual-content{padding:25px}
+  .visual-title h3{font-size:28px}
+  .stat-row{gap:6px}.stat{padding:12px 9px}
+  .feature-grid{grid-template-columns:1fr}
+  .card{min-height:230px}
+  .section{padding:75px 0}
+  .highlight-copy{padding:38px 26px}.highlight-copy h2{font-size:32px}
+  .highlight-media{min-height:270px}
+  .tech-grid{grid-template-columns:repeat(2,1fr)}
+  .cta{padding:75px 0}.cta-box{padding:55px 22px}
+  .footer-grid{grid-template-columns:1fr;gap:30px}
+}
+</style>
+</head>
+
+<body>
+<header class="nav-wrap">
+  <div class="container">
+    <nav>
+      <a href="/home" class="logo">
+        <img src="/assets/image/logo.png" alt="VirtuFit Logo">
+        <span class="logo-text">Virtu<span>Fit</span></span>
+      </a>
+
+      <div class="nav-links">
+        <a href="/home">Home</a>
+        <a href="/feature" class="active">Features</a>
+        <a href="/about">About</a>
+      </div>
+
+      <a href="/login.html" class="nav-cta">Try Now →</a>
+      <button class="menu-btn" id="menuBtn" aria-label="Open menu">☰</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> AI Virtual Dressing Room</div>
+        <h1>Fashion,<br><span class="gradient">without the fitting room.</span></h1>
+        <p>
+          VirtuFit turns your camera into an interactive virtual wardrobe.
+          See outfits on yourself in real time, switch looks with gestures,
+          and explore a faster way to experience fashion.
+        </p>
+        <div class="hero-actions">
+          <a href="/login.html" class="hero-btn">🚀 Try VirtuFit</a>
+          <a href="#features" class="hero-btn secondary">Explore Features ↓</a>
+        </div>
+      </div>
+
+      <div class="visual">
+        <video class="visual-video" autoplay muted loop playsinline preload="metadata">
+          <source src="/assets/video/Model_changing_outfits_in_studio_202606171128.mp4" type="video/mp4">
+        </video>
+        <div class="visual-shade"></div>
+        <div class="visual-content">
+          <div class="visual-top">
+            <div class="status"><b></b> AI TRY-ON ACTIVE</div>
+            <div class="status">LIVE</div>
+          </div>
+          <div class="visual-title">
+            <small>Virtual Wardrobe</small>
+            <h3>Change your look.<br>Keep your flow.</h3>
+            <p>Camera-based pose tracking + smart garment rendering in one seamless experience.</p>
+          </div>
+          <div class="stat-row">
+            <div class="stat"><strong>Live</strong><span>Try-On</span></div>
+            <div class="stat"><strong>🤚</strong><span>Gestures</span></div>
+            <div class="stat"><strong>↔</strong><span>Quick Switch</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="section-kicker">Everything in one place</div>
+        <h2>Powerful features.<br>Simple experience.</h2>
+        <p>
+          VirtuFit combines computer vision, interactive controls and a
+          modern wardrobe interface so trying clothes feels natural.
+        </p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="card reveal">
+          <span class="tag">01</span>
+          <div class="icon">⚡</div>
+          <h3>Real-Time Try-On</h3>
+          <p>Use your webcam to preview garments live while VirtuFit tracks your body position and updates the outfit on screen.</p>
+        </article>
+
+        <article class="card reveal">
+          <span class="tag">02</span>
+          <div class="icon">🧍</div>
+          <h3>Pose Tracking</h3>
+          <p>MediaPipe Pose detects key body landmarks such as shoulders and hips to help position the garment naturally.</p>
+        </article>
+
+        <article class="card reveal">
+          <span class="tag">03</span>
+          <div class="icon">🤚</div>
+          <h3>Gesture Control</h3>
+          <p>Point toward Prev or Next to switch outfits without touching the interface. A hands-free way to browse your wardrobe.</p>
+        </article>
+
+        <article class="card reveal">
+          <span class="tag">04</span>
+          <div class="icon">👗</div>
+          <h3>Smart Wardrobe</h3>
+          <p>Browse available garments from a dedicated wardrobe panel and instantly select the outfit you want to preview.</p>
+        </article>
+
+        <article class="card reveal">
+          <span class="tag">05</span>
+          <div class="icon">⌨️</div>
+          <h3>Keyboard Shortcuts</h3>
+          <p>On desktop, the left and right arrow keys let you move through outfits quickly without leaving the try-on view.</p>
+        </article>
+
+        <article class="card reveal">
+          <span class="tag">06</span>
+          <div class="icon">🔒</div>
+          <h3>Privacy First</h3>
+          <p>The try-on interface is designed around device-side camera processing, so the live camera experience does not require uploading your video.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="highlight">
+    <div class="container">
+      <div class="highlight-box reveal">
+        <div class="highlight-copy">
+          <div class="section-kicker">Made for interaction</div>
+          <h2>Your body becomes the interface.</h2>
+          <p>
+            VirtuFit is more than a static clothing catalog. Its camera
+            experience combines pose detection and hand tracking to make
+            browsing outfits interactive.
+          </p>
+
+          <div class="checks">
+            <div class="check"><i>✓</i><span>Shoulder and hip landmarks for garment positioning</span></div>
+            <div class="check"><i>✓</i><span>Hand tracking for Prev / Next gesture controls</span></div>
+            <div class="check"><i>✓</i><span>Garment scaling and alpha blending for the rendered view</span></div>
+            <div class="check"><i>✓</i><span>Keyboard navigation for desktop users</span></div>
+          </div>
+        </div>
+
+        <div class="highlight-media">
+          <video autoplay muted loop playsinline preload="metadata">
+            <source src="/assets/video/Model_changing_outfits_in_studio_202606171128.mp4" type="video/mp4">
+          </video>
+          <div class="media-overlay"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section tech">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="section-kicker">Under the hood</div>
+        <h2>Technology behind VirtuFit</h2>
+        <p>Different pieces work together to turn camera input into an interactive virtual try-on.</p>
+      </div>
+
+      <div class="tech-grid">
+        <div class="tech-item reveal">MediaPipe<span>Pose & Hand Tracking</span></div>
+        <div class="tech-item reveal">OpenCV<span>Image Processing</span></div>
+        <div class="tech-item reveal">Canvas<span>Real-Time Rendering</span></div>
+        <div class="tech-item reveal">Firebase<span>User Authentication</span></div>
+        <div class="tech-item reveal">Web Camera<span>Live Input</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="container">
+      <div class="cta-box reveal">
+        <h2>Ready to try your<br>next look?</h2>
+        <p>Step into the virtual dressing room and experience VirtuFit for yourself.</p>
+        <a href="/login.html" class="demo-btn">✨ Start Virtual Try-On</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a href="/home" class="footer-logo">
+          <img src="/assets/image/logo.png" alt="VirtuFit Logo">
+          <strong>Virtu<span>Fit</span></strong>
+        </a>
+        <p class="footer-desc">AI-powered virtual dressing room technology for a more interactive fashion experience.</p>
+      </div>
+
+      <div class="footer-col">
+        <h4>Navigate</h4>
+        <a href="/home">Home</a>
+        <a href="/feature">Features</a>
+        <a href="/howitworks">How It Works</a>
+        <a href="/about">About</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>Get Started</h4>
+        <a href="/login.html">Log In</a>
+        <a href="/login.html">Try Now</a>
+        <a href="mailto:aakashudai001@gmail.com">Contact</a>
+      </div>
+    </div>
+
+    <div class="copyright">© 2026 VirtuFit • AI Virtual Dressing Room • Built by Aakash Udai</div>
+  </div>
+</footer>
+
+<script>
+/* Mobile menu */
+const menuBtn = document.getElementById("menuBtn");
+const navLinks = document.querySelector(".nav-links");
+
+menuBtn.addEventListener("click", () => {
+  const open = navLinks.classList.toggle("mobile-open");
+  menuBtn.textContent = open ? "✕" : "☰";
+});
+
+const mobileStyle = document.createElement("style");
+mobileStyle.textContent = `
+@media(max-width:900px){
+  .nav-links.mobile-open{
+    display:flex;position:absolute;top:76px;left:6%;right:6%;
+    flex-direction:column;align-items:stretch;gap:0;padding:10px 18px;
+    background:rgba(18,0,46,.96);border:1px solid rgba(124,77,255,.25);
+    border-radius:18px;box-shadow:0 25px 60px rgba(18,0,46,.25);
+    backdrop-filter:blur(18px)
+  }
+  .nav-links.mobile-open a{color:rgba(255,255,255,.85);padding:14px 3px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .nav-links.mobile-open a:last-child{border-bottom:0}
+}
+`;
+document.head.appendChild(mobileStyle);
+
+/* Scroll reveal */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if(entry.isIntersecting){
+      entry.target.classList.add("show");
+      observer.unobserve(entry.target);
+    }
+  });
+},{threshold:.12});
+
+document.querySelectorAll(".reveal").forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
