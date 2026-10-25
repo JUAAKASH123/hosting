@@ -1,6 +1,23 @@
+﻿# Secrets - never commit these
+.env
+*.env
+firebase/
+firebase*.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+
+# Python
 venv/
+.venv/
+env/
 __pycache__/
 *.pyc
-.env
-firebase/*-firebase-adminsdk-*.json
 
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
