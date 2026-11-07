@@ -5,10 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="description" content="VirtuFit dressing room — try on clothes live using your webcam. All processing runs on your own device; nothing is uploaded.">
 <title>VirtuFit — Virtual Dressing Room</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://storage.googleapis.com" crossorigin>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -71,12 +67,6 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(
 .instructions-card button:hover{transform:translateY(-2px);box-shadow:0 14px 34px var(--purple-glow);}
 .help-btn{position:absolute;bottom:26px;right:200px;z-index:10;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);border:1px solid var(--border);box-shadow:0 10px 26px rgba(127,92,255,.25);font-size:15px;font-weight:800;color:var(--purple-1);cursor:pointer;transition:var(--transition);}
 .help-btn:hover{transform:translateY(-3px);background:var(--gradient);color:#fff;}
-.instructions-card button.secondary{background:transparent;color:var(--text-muted);box-shadow:none;margin-top:10px;font-weight:600;}
-.instructions-card button.secondary:hover{box-shadow:none;color:var(--text-main);transform:none;}
-.compat-card{max-height:90vh;max-height:90dvh;overflow-y:auto;}
-.compat-item strong{display:block;color:var(--text-main);font-size:14px;margin-bottom:2px;}
-.compat-item .detail{display:block;color:#444;}
-.compat-item .fix{display:block;color:var(--purple-1);font-size:13px;margin-top:4px;font-weight:600;}
 @media (max-width:900px){
   .frame{width:100vw;max-width:none;height:100vh;height:100dvh;border-radius:0;border:none;flex-direction:column;}
   .camera-area{flex:1;min-height:0;}
@@ -113,16 +103,6 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(
   </div>
 </div>
 
-<div class="instructions-overlay" id="compatOverlay" style="z-index:150;">
-  <div class="instructions-card compat-card">
-    <h2 id="compatTitle">Heads up</h2>
-    <p class="sub" id="compatSub"></p>
-    <ul class="instructions-list" id="compatList"></ul>
-    <button id="compatContinue">Continue anyway</button>
-    <button id="compatCancel" class="secondary">Go back</button>
-  </div>
-</div>
-
 <button class="help-btn" id="helpBtn" title="Show instructions again">?</button>
 
 <div class="frame">
@@ -155,6 +135,9 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(
 <div id="toast" style="position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(12px);background:#1b1b1f;color:#fff;font-size:.75rem;letter-spacing:.06em;padding:.6rem 1.4rem;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:200;"></div>
 
 <script type="module">
+// ── FIX: a single merged import for Firebase Auth. The old file imported
+// getAuth/onAuthStateChanged twice, which is a SyntaxError that stopped the
+// whole module (so the page stayed on "Waiting for sign-in…" forever).
 import { PoseLandmarker, HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -172,25 +155,15 @@ const firebaseConfig = {
 const auth = getAuth(initializeApp(firebaseConfig));
 setPersistence(auth, browserLocalPersistence).catch(e => console.warn("Persistence setup failed:", e));
 
-// ── Tunables ────────────────────────────────────────────────────────────────
 const WIDTH_SCALE = 2.0;
 const HEIGHT_SCALE = 1.6;
 const NECK_OFFSET_FACTOR = 0.22;
-const SMOOTH_TIME_MS = 70;          // time constant for smoothing (fps independent)
+const SMOOTH_ALPHA = 0.3;
 const MIN_ALPHA = 30;
 const MIN_ROW_FRACTION = 0.03;
 const LOW_LIGHT_THRESHOLD = 60;
 const BUTTON_COOLDOWN_MS = 1500;
 const HAND_DETECT_EVERY_N_FRAMES = 2;
-const GARMENT_MAX_DIM = 512;        // garments are downscaled to this before analysis
-const MIN_VISIBILITY = 0.5;
-
-// ── Device detection ────────────────────────────────────────────────────────
-const IS_MOBILE = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-const VIDEO_CONSTRAINTS = IS_MOBILE
-  ? { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 640 } }    // portrait + small on phones
-  : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } };
 
 const LEFT_SHOULDER = 11, RIGHT_SHOULDER = 12, LEFT_HIP = 23, RIGHT_HIP = 24;
 const INDEX_FINGERTIP = 8;
@@ -234,21 +207,13 @@ let clothMeta = [];
 let _analyzing = new Set();
 let curId = 0;
 
-// smoothX/smoothY = neck anchor point; smoothA = shoulder-line angle (radians)
-let smoothX = null, smoothY = null, smoothW = null, smoothH = null, smoothA = 0;
-let lastDrawT = 0;
+let smoothX = null, smoothY = null, smoothW = null, smoothH = null;
 let missedPoseFrames = 0;
 const MAX_MISSED_POSE_FRAMES = 6;
 
 const analysisCanvas = document.createElement('canvas');
 const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
 
-// Tiny canvas used only for the low-light check
-const lightCv = document.createElement('canvas');
-lightCv.width = 32; lightCv.height = 18;
-const lightCtx = lightCv.getContext('2d', { willReadFrequently: true });
-
-// ── Garment analysis ────────────────────────────────────────────────────────
 function hasRealTransparency(data) {
   let transparentCount = 0;
   const total = data.length / 4;
@@ -317,14 +282,11 @@ function erodeAlpha(data, w, h, radius) {
 }
 
 function analyzeGarment(img) {
-  // Downscale first: much faster analysis and much cheaper per-frame drawImage.
-  const s = Math.min(1, GARMENT_MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
-  const w = Math.max(1, Math.round(img.naturalWidth * s));
-  const h = Math.max(1, Math.round(img.naturalHeight * s));
-  analysisCanvas.width = w;
-  analysisCanvas.height = h;
-  analysisCtx.clearRect(0, 0, w, h);
-  analysisCtx.drawImage(img, 0, 0, w, h);
+  analysisCanvas.width = img.naturalWidth;
+  analysisCanvas.height = img.naturalHeight;
+  analysisCtx.clearRect(0, 0, analysisCanvas.width, analysisCanvas.height);
+  analysisCtx.drawImage(img, 0, 0);
+  const w = analysisCanvas.width, h = analysisCanvas.height;
   let imgData = analysisCtx.getImageData(0, 0, w, h);
 
   if (!hasRealTransparency(imgData.data)) imgData = removeFlatBackground(imgData, w, h);
@@ -369,10 +331,9 @@ async function loadClothes() {
     div.id = `thumb-${i}`;
     div.onclick = () => window.selectCloth(i);
     const img = document.createElement('img');
-    img.src = `/assets/he/${name}`;   // TIP: serve small (~300px WebP) thumbnails here
+    img.src = `/assets/he/${name}`;
     img.alt = name;
     img.loading = 'lazy';
-    img.decoding = 'async';
     div.appendChild(img);
     clothPanel.appendChild(div);
   });
@@ -394,7 +355,6 @@ function ensureGarmentReady(i) {
     clothMeta[i] = analyzeGarment(fullImg);
     _analyzing.delete(i);
     if (thumb) thumb.classList.remove('loading');
-    prefetchNeighbors(i);
   };
   fullImg.onerror = () => {
     console.warn('Failed to load garment:', clothes[i]);
@@ -404,17 +364,6 @@ function ensureGarmentReady(i) {
   fullImg.src = `/assets/he/${clothes[i]}`;
 }
 
-// Warm up the next/previous outfit while the browser is idle so switching feels instant.
-function prefetchNeighbors(i) {
-  if (clothes.length < 2) return;
-  const idle = window.requestIdleCallback || (fn => setTimeout(fn, 300));
-  idle(() => {
-    ensureGarmentReady((i + 1) % clothes.length);
-    ensureGarmentReady((i - 1 + clothes.length) % clothes.length);
-  });
-}
-
-// ── Models ──────────────────────────────────────────────────────────────────
 async function createLandmarker(Cls, vision, modelPath, extra, key) {
   try {
     const lm = await Cls.createFromOptions(vision, {
@@ -441,80 +390,30 @@ async function initModels() {
   );
   const poseModelPath = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
   const handModelPath = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
-
-  // Load in parallel. Skip the hand model on phones (users just tap Prev/Next).
-  const jobs = [
-    createLandmarker(PoseLandmarker, vision, poseModelPath, { numPoses: 1 }, 'pose').then(m => { poseLandmarker = m; })
-  ];
-  if (!IS_MOBILE) {
-    jobs.push(createLandmarker(HandLandmarker, vision, handModelPath, { numHands: 2 }, 'hands').then(m => { handLandmarker = m; }));
-  }
-  await Promise.all(jobs);
-}
-
-// Start downloading models right away (while the user reads the instructions / signs in).
-let modelsPromise = null;
-function ensureModels() {
-  if (!modelsPromise) modelsPromise = initModels().catch(e => { modelsPromise = null; throw e; });
-  return modelsPromise;
-}
-
-// ── Camera ──────────────────────────────────────────────────────────────────
-const CAMERA_ERROR_NAMES = ['NotAllowedError', 'PermissionDeniedError', 'NotFoundError', 'DevicesNotFoundError',
-  'NotReadableError', 'TrackStartError', 'OverconstrainedError', 'SecurityError', 'AbortError'];
-
-function describeCameraError(err) {
-  switch (err && err.name) {
-    case 'NotAllowedError':
-    case 'PermissionDeniedError':
-    case 'SecurityError':
-      return { title: 'Camera permission was blocked',
-        detail: 'The browser did not let this page use your camera, so we cannot show the clothes on you.',
-        fix: 'Tap the lock/camera icon in the address bar, set Camera to Allow, then press Try again.' };
-    case 'NotFoundError':
-    case 'DevicesNotFoundError':
-      return { title: 'No camera found',
-        detail: 'This device does not appear to have a working front camera.',
-        fix: 'Connect a camera or open the site on a phone or laptop that has one.' };
-    case 'NotReadableError':
-    case 'TrackStartError':
-    case 'AbortError':
-      return { title: 'Camera is busy',
-        detail: 'Another app or browser tab is already using your camera.',
-        fix: 'Close other apps or tabs that use the camera (Zoom, Meet, Instagram...), then press Try again.' };
-    case 'OverconstrainedError':
-      return { title: 'Camera settings not supported',
-        detail: 'Your camera could not provide the video format this page asked for.',
-        fix: 'Try a different browser or device.' };
-    default:
-      return null;
-  }
+  poseLandmarker = await createLandmarker(PoseLandmarker, vision, poseModelPath, { numPoses: 1 }, 'pose');
+  handLandmarker = await createLandmarker(HandLandmarker, vision, handModelPath, { numHands: 2 }, 'hands');
 }
 
 async function startCamera() {
   if (streaming) return;
-  loaderText.textContent = 'Starting camera & AI…';
+  loaderText.textContent = 'Requesting camera…';
   loader.classList.remove('hidden');
   canvas.classList.remove('live');
-  let stream = null;
   try {
-    // Camera permission and model loading happen at the same time.
-    const camPromise = navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS, audio: false });
-    const modelPromise = ensureModels();
-    camPromise.catch(() => {});      // avoid unhandled-rejection noise; errors are handled below
-    modelPromise.catch(() => {});
-    stream = await camPromise;
-    await modelPromise;
-
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false
+    });
     rawVideo.srcObject = stream;
     await rawVideo.play();
 
     canvas.width = rawVideo.videoWidth;
     canvas.height = rawVideo.videoHeight;
 
+    if (!poseLandmarker || !handLandmarker) await initModels();
+
     streaming = true;
     loopRunning = true;
-    lastVideoTime = -1;
     loader.classList.add('hidden');
     canvas.classList.add('live');
     liveDot.style.background = '#7fc87b';
@@ -522,28 +421,9 @@ async function startCamera() {
     camLabel.textContent = 'LIVE';
     renderLoop();
   } catch (err) {
+    loaderText.textContent = 'Camera access denied or AI model failed to load';
     console.error(err);
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    rawVideo.srcObject = null;
-    camSwitch.checked = false;
-    loaderText.textContent = 'Could not start';
-
-    let item = describeCameraError(err);
-    if (!item) {
-      item = { title: 'The AI model could not load',
-        detail: 'The tracking model failed to download or start. This usually means a weak internet connection, or a device/browser that cannot run it.',
-        fix: 'Check your internet connection, then press Try again. If it keeps failing, try Chrome or Safari.' };
-    }
-    showCompat({
-      blocked: true,
-      title: 'Try-on could not start',
-      sub: 'Here is what went wrong:',
-      items: [{ level: 'block', ...item }],
-      continueLabel: 'Try again',
-      onContinue: () => { camSwitch.checked = true; startCamera(); },
-      cancelLabel: 'Back to Home',
-      onCancel: () => { window.location.href = '/home'; }
-    });
+    toast('Could not access camera or load AI model');
   }
 }
 
@@ -564,7 +444,6 @@ function stopCamera() {
   prevBtnEl.classList.remove('gesture-hover');
   nextBtnEl.classList.remove('gesture-hover');
   handWasInside = { left: false, right: false };
-  smoothX = null;
 }
 
 window.toggleCamera = function () {
@@ -573,21 +452,20 @@ window.toggleCamera = function () {
 
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
-// Cheap brightness check: downsample the video to 32x18 instead of reading the full canvas.
 function checkLowLight(now) {
   if (now - lastLightCheck < 500) return;
   lastLightCheck = now;
-  try {
-    lightCtx.drawImage(rawVideo, 0, 0, 32, 18);
-    const d = lightCtx.getImageData(0, 0, 32, 18).data;
-    let sum = 0;
-    for (let i = 0; i < d.length; i += 4) sum += (d[i] + d[i + 1] + d[i + 2]) / 3;
-    const mean = sum / (d.length / 4);
-    lightWarning.style.display = mean < LOW_LIGHT_THRESHOLD ? 'block' : 'none';
-  } catch (e) { /* ignore */ }
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let sum = 0, n = 0;
+  const sampleStride = 40;
+  for (let i = 0; i < data.length; i += 4 * sampleStride) {
+    sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+    n++;
+  }
+  const mean = n ? sum / n : 255;
+  lightWarning.style.display = mean < LOW_LIGHT_THRESHOLD ? 'block' : 'none';
 }
 
-// ── Hand gestures ───────────────────────────────────────────────────────────
 function landmarkToScreenPoint(lm) {
   const bufW = canvas.width, bufH = canvas.height;
   const bufX = bufW - (lm.x * bufW);
@@ -641,15 +519,8 @@ function checkGestureButtons(handResult) {
   handWasInside = insideNow;
 }
 
-// ── Rendering ───────────────────────────────────────────────────────────────
 function drawFrame(poseResult) {
   const w = canvas.width, h = canvas.height;
-  const t = performance.now();
-  const dt = Math.min(250, t - lastDrawT);
-  lastDrawT = t;
-  // Time-based smoothing factor: same feel at 10 fps and 60 fps.
-  const a = 1 - Math.exp(-dt / SMOOTH_TIME_MS);
-
   ctx.save();
   ctx.translate(w, 0);
   ctx.scale(-1, 1);
@@ -657,39 +528,33 @@ function drawFrame(poseResult) {
 
   const lm = poseResult?.landmarks?.[0];
   const meta = clothMeta[curId];
-  const vis = p => (p && p.visibility !== undefined) ? p.visibility : 1;
 
-  if (lm && meta && meta.drawable &&
-      vis(lm[LEFT_SHOULDER]) > MIN_VISIBILITY && vis(lm[RIGHT_SHOULDER]) > MIN_VISIBILITY) {
+  if (lm && meta && meta.drawable) {
     missedPoseFrames = 0;
     const ls = { x: lm[LEFT_SHOULDER].x * w, y: lm[LEFT_SHOULDER].y * h };
     const rs = { x: lm[RIGHT_SHOULDER].x * w, y: lm[RIGHT_SHOULDER].y * h };
     const lh = { x: lm[LEFT_HIP].x * w, y: lm[LEFT_HIP].y * h };
     const rh = { x: lm[RIGHT_HIP].x * w, y: lm[RIGHT_HIP].y * h };
 
-    const sc = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
+    const shoulderCenter = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
     const shoulderDist = Math.max(40, dist(ls, rs));
-
-    // If hips are off-screen (common on handheld phones) fall back to a body-proportion estimate.
-    const hipsOk = vis(lm[LEFT_HIP]) > MIN_VISIBILITY && vis(lm[RIGHT_HIP]) > MIN_VISIBILITY;
-    const torso = hipsOk
-      ? dist(sc, { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 })
-      : shoulderDist * 1.4;
+    const hipMid = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
 
     const targetW = shoulderDist * WIDTH_SCALE;
-    const targetH = Math.max(1, torso * HEIGHT_SCALE);
-    const neckX = sc.x;
-    const neckY = sc.y - shoulderDist * NECK_OFFSET_FACTOR;
-    const angle = Math.atan2(ls.y - rs.y, ls.x - rs.x);   // shoulder-line tilt
+    const targetH = Math.max(1, dist(shoulderCenter, hipMid) * HEIGHT_SCALE);
+
+    const neckY = shoulderCenter.y - shoulderDist * NECK_OFFSET_FACTOR;
+    const collarOffset = meta.collarTopFrac * targetH;
+    const topY = neckY - collarOffset;
+    const topX = shoulderCenter.x - meta.centroidXFrac * targetW;
 
     if (smoothX === null) {
-      smoothX = neckX; smoothY = neckY; smoothW = targetW; smoothH = targetH; smoothA = angle;
+      smoothX = topX; smoothY = topY; smoothW = targetW; smoothH = targetH;
     } else {
-      smoothX += a * (neckX - smoothX);
-      smoothY += a * (neckY - smoothY);
-      smoothW += a * (targetW - smoothW);
-      smoothH += a * (targetH - smoothH);
-      smoothA += a * (angle - smoothA);
+      smoothX += SMOOTH_ALPHA * (topX - smoothX);
+      smoothY += SMOOTH_ALPHA * (topY - smoothY);
+      smoothW += SMOOTH_ALPHA * (targetW - smoothW);
+      smoothH += SMOOTH_ALPHA * (targetH - smoothH);
     }
   } else if (smoothX !== null) {
     missedPoseFrames++;
@@ -697,29 +562,18 @@ function drawFrame(poseResult) {
   }
 
   if (meta && meta.drawable && smoothX !== null && missedPoseFrames <= MAX_MISSED_POSE_FRAMES) {
-    // Anchor the garment's collar-centre on the neck point, then rotate with the shoulders.
-    ctx.translate(smoothX, smoothY);
-    ctx.rotate(smoothA);
-    ctx.drawImage(
-      meta.drawable,
-      -meta.centroidXFrac * smoothW,
-      -meta.collarTopFrac * smoothH,
-      smoothW, smoothH
-    );
+    ctx.drawImage(meta.drawable, smoothX, smoothY, smoothW, smoothH);
   }
   ctx.restore();
 
-  checkLowLight(t);
+  checkLowLight(performance.now());
 
   frameCount++;
-  if (t - lastFpsTime >= 1000) {
+  const now = performance.now();
+  if (now - lastFpsTime >= 1000) {
     fpsBadge.textContent = frameCount + ' fps (this device)';
     fpsSamples.push(frameCount);
-    if (fpsSamples.length === 4 && !window._slowWarned) {
-      const avgFps = fpsSamples.reduce((x, y) => x + y, 0) / fpsSamples.length;
-      if (avgFps < 8) { window._slowWarned = true; toast('Your device is running slowly. Try better lighting or close other apps.'); }
-    }
-    frameCount = 0; lastFpsTime = t;
+    frameCount = 0; lastFpsTime = now;
   }
 }
 
@@ -728,13 +582,6 @@ function renderLoop() {
   if (rawVideo.currentTime !== lastVideoTime) {
     lastVideoTime = rawVideo.currentTime;
     renderFrameIdx++;
-
-    // Keep the canvas buffer in sync if the stream size changes (rotation, resolution change).
-    if (rawVideo.videoWidth && (canvas.width !== rawVideo.videoWidth || canvas.height !== rawVideo.videoHeight)) {
-      canvas.width = rawVideo.videoWidth;
-      canvas.height = rawVideo.videoHeight;
-      smoothX = null;
-    }
 
     const poseResult = poseLandmarker ? poseLandmarker.detectForVideo(rawVideo, performance.now()) : null;
     drawFrame(poseResult);
@@ -747,14 +594,12 @@ function renderLoop() {
   requestAnimationFrame(renderLoop);
 }
 
-// ── UI ──────────────────────────────────────────────────────────────────────
 function updateUI(id) {
   curId = id;
   document.querySelectorAll('.cloth-item').forEach((el, i) => el.classList.toggle('active', i === id));
   const active = document.getElementById(`thumb-${id}`);
   if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   smoothX = smoothY = smoothW = smoothH = null;
-  smoothA = 0;
   missedPoseFrames = 0;
   ensureGarmentReady(id);
 }
@@ -818,135 +663,21 @@ instructionsGotIt.addEventListener('click', () => {
 });
 helpBtn.addEventListener('click', showInstructions);
 
-// ── Pre-flight device compatibility check ───────────────────────────────────
-function checkDevice() {
-  const items = [];
-  const ua = navigator.userAgent;
-
-  // Blockers: the try-on cannot work at all.
-  if (!window.isSecureContext) items.push({ level: 'block',
-    title: 'Page is not secure (no HTTPS)',
-    detail: 'Browsers only allow camera access on secure pages.',
-    fix: 'Open the site using the https:// address.' });
-
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) items.push({ level: 'block',
-    title: 'Camera not supported by this browser',
-    detail: 'Your browser cannot access the camera, which the try-on needs.',
-    fix: 'Open this link in the latest Chrome or Safari.' });
-
-  if (typeof WebAssembly !== 'object') items.push({ level: 'block',
-    title: 'WebAssembly not supported',
-    detail: 'The AI tracking model runs on WebAssembly, which this browser does not support.',
-    fix: 'Update your browser or use the latest Chrome or Safari.' });
-
-  // Warnings: it may work, but badly.
-  if (/FBAN|FBAV|Instagram|Snapchat|TikTok|musical_ly|Line\//i.test(ua)) items.push({ level: 'warn',
-    title: 'You are inside an app browser',
-    detail: 'Instagram, Facebook, TikTok and similar apps often block the camera or run it poorly.',
-    fix: 'Tap the menu (⋯) and choose "Open in browser" / "Open in Chrome" or "Open in Safari".' });
-
-  let hasGL = false;
-  try {
-    const c = document.createElement('canvas');
-    hasGL = !!(c.getContext('webgl2') || c.getContext('webgl'));
-  } catch (e) {}
-  if (!hasGL) items.push({ level: 'warn',
-    title: 'Graphics acceleration unavailable',
-    detail: 'Your device or browser is not using the GPU, so tracking will run on the CPU and may be slow.',
-    fix: 'Enable hardware acceleration in your browser settings, or try another browser.' });
-
-  if (navigator.deviceMemory && navigator.deviceMemory <= 2) items.push({ level: 'warn',
-    title: 'Low device memory (' + navigator.deviceMemory + ' GB or less)',
-    detail: 'The AI model needs a fair amount of memory, so the page may lag or reload.',
-    fix: 'Close other apps and tabs before continuing.' });
-
-  if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2) items.push({ level: 'warn',
-    title: 'Slow processor',
-    detail: 'Your device has only ' + navigator.hardwareConcurrency + ' CPU core(s), so expect a low frame rate.',
-    fix: 'The clothes may follow you with a delay. A newer phone or laptop will work better.' });
-
-  return items;
-}
-
-function showCompat({ blocked, title, sub, items, continueLabel, onContinue, cancelLabel, onCancel }) {
-  const overlay = document.getElementById('compatOverlay');
-  const list = document.getElementById('compatList');
-  const cont = document.getElementById('compatContinue');
-  const cancel = document.getElementById('compatCancel');
-
-  document.getElementById('compatTitle').textContent = title;
-  document.getElementById('compatSub').textContent = sub;
-
-  list.innerHTML = '';
-  items.forEach(it => {
-    const li = document.createElement('li');
-    const em = document.createElement('span');
-    em.className = 'emoji';
-    em.textContent = it.level === 'block' ? '⛔' : '⚠️';
-    const body = document.createElement('span');
-    body.className = 'compat-item';
-    const t = document.createElement('strong'); t.textContent = it.title;
-    const d = document.createElement('span'); d.className = 'detail'; d.textContent = it.detail;
-    const f = document.createElement('span'); f.className = 'fix'; f.textContent = '→ ' + it.fix;
-    body.append(t, d, f);
-    li.append(em, body);
-    list.appendChild(li);
-  });
-
-  cont.style.display = (blocked && !onContinue) ? 'none' : 'block';
-  cont.textContent = continueLabel || 'Continue anyway';
-  cancel.textContent = cancelLabel || 'Go back';
-  cont.onclick = () => { overlay.classList.remove('show'); if (onContinue) onContinue(); };
-  cancel.onclick = () => { overlay.classList.remove('show'); if (onCancel) onCancel(); else window.location.href = '/home'; };
-  overlay.classList.add('show');
-}
-
-let appStarted = false;
-
-function startApp() {
-  ensureModels().catch(e => console.warn('Model preload failed, will retry on camera start:', e));
-  loaderText.textContent = 'Ready';
-  loadClothes();
-
-  let alreadySeen = false;
-  try { alreadySeen = localStorage.getItem(SEEN_INSTRUCTIONS_KEY) === '1'; } catch (e) {}
-  if (alreadySeen) startCamera();
-  else showInstructions();
-}
-
 // Only load the wardrobe / start the camera once we know the user is signed in.
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.href = '/login.html';
     return;
   }
-  if (appStarted) return;   // this callback can fire more than once
-  appStarted = true;
 
-  const items = checkDevice();
-  const blocked = items.some(i => i.level === 'block');
+  loaderText.textContent = 'Ready';
+  loadClothes();
 
-  if (blocked) {
-    showCompat({
-      blocked: true,
-      title: 'Your device is not supported',
-      sub: 'Virtual try-on cannot run here, for these reasons:',
-      items,
-      cancelLabel: 'Back to Home'
-    });
-  } else if (items.length) {
-    showCompat({
-      blocked: false,
-      title: 'Your device may struggle',
-      sub: 'We found a few things that could affect performance:',
-      items,
-      continueLabel: 'Continue anyway',
-      onContinue: startApp,
-      cancelLabel: 'Go back'
-    });
-  } else {
-    startApp();
-  }
+  let alreadySeen = false;
+  try { alreadySeen = localStorage.getItem(SEEN_INSTRUCTIONS_KEY) === '1'; } catch (e) {}
+
+  if (alreadySeen) startCamera();
+  else showInstructions();
 });
 </script>
 </body>
