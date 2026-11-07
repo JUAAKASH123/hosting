@@ -71,6 +71,12 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(
 .instructions-card button:hover{transform:translateY(-2px);box-shadow:0 14px 34px var(--purple-glow);}
 .help-btn{position:absolute;bottom:26px;right:200px;z-index:10;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);border:1px solid var(--border);box-shadow:0 10px 26px rgba(127,92,255,.25);font-size:15px;font-weight:800;color:var(--purple-1);cursor:pointer;transition:var(--transition);}
 .help-btn:hover{transform:translateY(-3px);background:var(--gradient);color:#fff;}
+.instructions-card button.secondary{background:transparent;color:var(--text-muted);box-shadow:none;margin-top:10px;font-weight:600;}
+.instructions-card button.secondary:hover{box-shadow:none;color:var(--text-main);transform:none;}
+.compat-card{max-height:90vh;max-height:90dvh;overflow-y:auto;}
+.compat-item strong{display:block;color:var(--text-main);font-size:14px;margin-bottom:2px;}
+.compat-item .detail{display:block;color:#444;}
+.compat-item .fix{display:block;color:var(--purple-1);font-size:13px;margin-top:4px;font-weight:600;}
 @media (max-width:900px){
   .frame{width:100vw;max-width:none;height:100vh;height:100dvh;border-radius:0;border:none;flex-direction:column;}
   .camera-area{flex:1;min-height:0;}
@@ -104,6 +110,16 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(
       <li><span class="emoji">⌨️</span><span>On desktop, the ← and → arrow keys also switch outfits.</span></li>
     </ul>
     <button id="instructionsGotIt">Got it — Start Try-On</button>
+  </div>
+</div>
+
+<div class="instructions-overlay" id="compatOverlay" style="z-index:150;">
+  <div class="instructions-card compat-card">
+    <h2 id="compatTitle">Heads up</h2>
+    <p class="sub" id="compatSub"></p>
+    <ul class="instructions-list" id="compatList"></ul>
+    <button id="compatContinue">Continue anyway</button>
+    <button id="compatCancel" class="secondary">Go back</button>
   </div>
 </div>
 
@@ -442,20 +458,54 @@ function ensureModels() {
   if (!modelsPromise) modelsPromise = initModels().catch(e => { modelsPromise = null; throw e; });
   return modelsPromise;
 }
-ensureModels().catch(e => console.warn('Model preload failed, will retry on camera start:', e));
 
 // ── Camera ──────────────────────────────────────────────────────────────────
+const CAMERA_ERROR_NAMES = ['NotAllowedError', 'PermissionDeniedError', 'NotFoundError', 'DevicesNotFoundError',
+  'NotReadableError', 'TrackStartError', 'OverconstrainedError', 'SecurityError', 'AbortError'];
+
+function describeCameraError(err) {
+  switch (err && err.name) {
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+    case 'SecurityError':
+      return { title: 'Camera permission was blocked',
+        detail: 'The browser did not let this page use your camera, so we cannot show the clothes on you.',
+        fix: 'Tap the lock/camera icon in the address bar, set Camera to Allow, then press Try again.' };
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return { title: 'No camera found',
+        detail: 'This device does not appear to have a working front camera.',
+        fix: 'Connect a camera or open the site on a phone or laptop that has one.' };
+    case 'NotReadableError':
+    case 'TrackStartError':
+    case 'AbortError':
+      return { title: 'Camera is busy',
+        detail: 'Another app or browser tab is already using your camera.',
+        fix: 'Close other apps or tabs that use the camera (Zoom, Meet, Instagram...), then press Try again.' };
+    case 'OverconstrainedError':
+      return { title: 'Camera settings not supported',
+        detail: 'Your camera could not provide the video format this page asked for.',
+        fix: 'Try a different browser or device.' };
+    default:
+      return null;
+  }
+}
+
 async function startCamera() {
   if (streaming) return;
   loaderText.textContent = 'Starting camera & AI…';
   loader.classList.remove('hidden');
   canvas.classList.remove('live');
+  let stream = null;
   try {
     // Camera permission and model loading happen at the same time.
-    const [stream] = await Promise.all([
-      navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS, audio: false }),
-      ensureModels()
-    ]);
+    const camPromise = navigator.mediaDevices.getUserMedia({ video: VIDEO_CONSTRAINTS, audio: false });
+    const modelPromise = ensureModels();
+    camPromise.catch(() => {});      // avoid unhandled-rejection noise; errors are handled below
+    modelPromise.catch(() => {});
+    stream = await camPromise;
+    await modelPromise;
+
     rawVideo.srcObject = stream;
     await rawVideo.play();
 
@@ -472,9 +522,28 @@ async function startCamera() {
     camLabel.textContent = 'LIVE';
     renderLoop();
   } catch (err) {
-    loaderText.textContent = 'Camera access denied or AI model failed to load';
     console.error(err);
-    toast('Could not access camera or load AI model');
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    rawVideo.srcObject = null;
+    camSwitch.checked = false;
+    loaderText.textContent = 'Could not start';
+
+    let item = describeCameraError(err);
+    if (!item) {
+      item = { title: 'The AI model could not load',
+        detail: 'The tracking model failed to download or start. This usually means a weak internet connection, or a device/browser that cannot run it.',
+        fix: 'Check your internet connection, then press Try again. If it keeps failing, try Chrome or Safari.' };
+    }
+    showCompat({
+      blocked: true,
+      title: 'Try-on could not start',
+      sub: 'Here is what went wrong:',
+      items: [{ level: 'block', ...item }],
+      continueLabel: 'Try again',
+      onContinue: () => { camSwitch.checked = true; startCamera(); },
+      cancelLabel: 'Back to Home',
+      onCancel: () => { window.location.href = '/home'; }
+    });
   }
 }
 
@@ -646,6 +715,10 @@ function drawFrame(poseResult) {
   if (t - lastFpsTime >= 1000) {
     fpsBadge.textContent = frameCount + ' fps (this device)';
     fpsSamples.push(frameCount);
+    if (fpsSamples.length === 4 && !window._slowWarned) {
+      const avgFps = fpsSamples.reduce((x, y) => x + y, 0) / fpsSamples.length;
+      if (avgFps < 8) { window._slowWarned = true; toast('Your device is running slowly. Try better lighting or close other apps.'); }
+    }
     frameCount = 0; lastFpsTime = t;
   }
 }
@@ -745,21 +818,135 @@ instructionsGotIt.addEventListener('click', () => {
 });
 helpBtn.addEventListener('click', showInstructions);
 
+// ── Pre-flight device compatibility check ───────────────────────────────────
+function checkDevice() {
+  const items = [];
+  const ua = navigator.userAgent;
+
+  // Blockers: the try-on cannot work at all.
+  if (!window.isSecureContext) items.push({ level: 'block',
+    title: 'Page is not secure (no HTTPS)',
+    detail: 'Browsers only allow camera access on secure pages.',
+    fix: 'Open the site using the https:// address.' });
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) items.push({ level: 'block',
+    title: 'Camera not supported by this browser',
+    detail: 'Your browser cannot access the camera, which the try-on needs.',
+    fix: 'Open this link in the latest Chrome or Safari.' });
+
+  if (typeof WebAssembly !== 'object') items.push({ level: 'block',
+    title: 'WebAssembly not supported',
+    detail: 'The AI tracking model runs on WebAssembly, which this browser does not support.',
+    fix: 'Update your browser or use the latest Chrome or Safari.' });
+
+  // Warnings: it may work, but badly.
+  if (/FBAN|FBAV|Instagram|Snapchat|TikTok|musical_ly|Line\//i.test(ua)) items.push({ level: 'warn',
+    title: 'You are inside an app browser',
+    detail: 'Instagram, Facebook, TikTok and similar apps often block the camera or run it poorly.',
+    fix: 'Tap the menu (⋯) and choose "Open in browser" / "Open in Chrome" or "Open in Safari".' });
+
+  let hasGL = false;
+  try {
+    const c = document.createElement('canvas');
+    hasGL = !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch (e) {}
+  if (!hasGL) items.push({ level: 'warn',
+    title: 'Graphics acceleration unavailable',
+    detail: 'Your device or browser is not using the GPU, so tracking will run on the CPU and may be slow.',
+    fix: 'Enable hardware acceleration in your browser settings, or try another browser.' });
+
+  if (navigator.deviceMemory && navigator.deviceMemory <= 2) items.push({ level: 'warn',
+    title: 'Low device memory (' + navigator.deviceMemory + ' GB or less)',
+    detail: 'The AI model needs a fair amount of memory, so the page may lag or reload.',
+    fix: 'Close other apps and tabs before continuing.' });
+
+  if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2) items.push({ level: 'warn',
+    title: 'Slow processor',
+    detail: 'Your device has only ' + navigator.hardwareConcurrency + ' CPU core(s), so expect a low frame rate.',
+    fix: 'The clothes may follow you with a delay. A newer phone or laptop will work better.' });
+
+  return items;
+}
+
+function showCompat({ blocked, title, sub, items, continueLabel, onContinue, cancelLabel, onCancel }) {
+  const overlay = document.getElementById('compatOverlay');
+  const list = document.getElementById('compatList');
+  const cont = document.getElementById('compatContinue');
+  const cancel = document.getElementById('compatCancel');
+
+  document.getElementById('compatTitle').textContent = title;
+  document.getElementById('compatSub').textContent = sub;
+
+  list.innerHTML = '';
+  items.forEach(it => {
+    const li = document.createElement('li');
+    const em = document.createElement('span');
+    em.className = 'emoji';
+    em.textContent = it.level === 'block' ? '⛔' : '⚠️';
+    const body = document.createElement('span');
+    body.className = 'compat-item';
+    const t = document.createElement('strong'); t.textContent = it.title;
+    const d = document.createElement('span'); d.className = 'detail'; d.textContent = it.detail;
+    const f = document.createElement('span'); f.className = 'fix'; f.textContent = '→ ' + it.fix;
+    body.append(t, d, f);
+    li.append(em, body);
+    list.appendChild(li);
+  });
+
+  cont.style.display = (blocked && !onContinue) ? 'none' : 'block';
+  cont.textContent = continueLabel || 'Continue anyway';
+  cancel.textContent = cancelLabel || 'Go back';
+  cont.onclick = () => { overlay.classList.remove('show'); if (onContinue) onContinue(); };
+  cancel.onclick = () => { overlay.classList.remove('show'); if (onCancel) onCancel(); else window.location.href = '/home'; };
+  overlay.classList.add('show');
+}
+
+let appStarted = false;
+
+function startApp() {
+  ensureModels().catch(e => console.warn('Model preload failed, will retry on camera start:', e));
+  loaderText.textContent = 'Ready';
+  loadClothes();
+
+  let alreadySeen = false;
+  try { alreadySeen = localStorage.getItem(SEEN_INSTRUCTIONS_KEY) === '1'; } catch (e) {}
+  if (alreadySeen) startCamera();
+  else showInstructions();
+}
+
 // Only load the wardrobe / start the camera once we know the user is signed in.
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.href = '/login.html';
     return;
   }
+  if (appStarted) return;   // this callback can fire more than once
+  appStarted = true;
 
-  loaderText.textContent = 'Ready';
-  loadClothes();
+  const items = checkDevice();
+  const blocked = items.some(i => i.level === 'block');
 
-  let alreadySeen = false;
-  try { alreadySeen = localStorage.getItem(SEEN_INSTRUCTIONS_KEY) === '1'; } catch (e) {}
-
-  if (alreadySeen) startCamera();
-  else showInstructions();
+  if (blocked) {
+    showCompat({
+      blocked: true,
+      title: 'Your device is not supported',
+      sub: 'Virtual try-on cannot run here, for these reasons:',
+      items,
+      cancelLabel: 'Back to Home'
+    });
+  } else if (items.length) {
+    showCompat({
+      blocked: false,
+      title: 'Your device may struggle',
+      sub: 'We found a few things that could affect performance:',
+      items,
+      continueLabel: 'Continue anyway',
+      onContinue: startApp,
+      cancelLabel: 'Go back'
+    });
+  } else {
+    startApp();
+  }
 });
 </script>
 </body>
