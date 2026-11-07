@@ -57,6 +57,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(
 @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
 .instructions-overlay{position:fixed;inset:0;z-index:100;background:rgba(18,8,40,.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:24px;}
 .instructions-overlay.show{display:flex;}
+#compatOverlay{z-index:150;}
 .instructions-card{width:100%;max-width:440px;background:#fff;border-radius:26px;border:1px solid var(--border);box-shadow:var(--shadow);padding:32px 30px 26px;}
 .instructions-card h2{font-size:22px;font-weight:800;color:var(--text-main);margin-bottom:6px;letter-spacing:-.3px;}
 .instructions-card .sub{font-size:13.5px;color:var(--text-muted);margin-bottom:20px;}
@@ -65,6 +66,9 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(
 .instructions-list .emoji{font-size:19px;line-height:1.4;flex-shrink:0;}
 .instructions-card button{width:100%;padding:14px 0;border-radius:999px;border:none;background:var(--gradient);color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:var(--transition);box-shadow:0 8px 26px var(--purple-glow);}
 .instructions-card button:hover{transform:translateY(-2px);box-shadow:0 14px 34px var(--purple-glow);}
+.instructions-card button.secondary{background:#eee;color:#333;box-shadow:none;}
+.compat-actions{display:flex;gap:10px;}
+.compat-note{font-size:12px;color:var(--text-muted);margin:-10px 0 20px;line-height:1.5;}
 .help-btn{position:absolute;bottom:26px;right:200px;z-index:10;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);border:1px solid var(--border);box-shadow:0 10px 26px rgba(127,92,255,.25);font-size:15px;font-weight:800;color:var(--purple-1);cursor:pointer;transition:var(--transition);}
 .help-btn:hover{transform:translateY(-3px);background:var(--gradient);color:#fff;}
 @media (max-width:900px){
@@ -103,6 +107,20 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(
   </div>
 </div>
 
+<!-- Device compatibility / performance popup -->
+<div class="instructions-overlay" id="compatOverlay">
+  <div class="instructions-card">
+    <h2 id="compatTitle">Heads up</h2>
+    <p class="sub" id="compatSub"></p>
+    <ul class="instructions-list" id="compatList"></ul>
+    <p class="compat-note" id="compatNote"></p>
+    <div class="compat-actions">
+      <button id="compatCancel" class="secondary">Cancel</button>
+      <button id="compatContinue">Continue anyway</button>
+    </div>
+  </div>
+</div>
+
 <button class="help-btn" id="helpBtn" title="Show instructions again">?</button>
 
 <div class="frame">
@@ -135,9 +153,6 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:radial-gradient(
 <div id="toast" style="position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(12px);background:#1b1b1f;color:#fff;font-size:.75rem;letter-spacing:.06em;padding:.6rem 1.4rem;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:200;"></div>
 
 <script type="module">
-// ── FIX: a single merged import for Firebase Auth. The old file imported
-// getAuth/onAuthStateChanged twice, which is a SyntaxError that stopped the
-// whole module (so the page stayed on "Waiting for sign-in…" forever).
 import { PoseLandmarker, HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -163,14 +178,17 @@ const MIN_ALPHA = 30;
 const MIN_ROW_FRACTION = 0.03;
 const LOW_LIGHT_THRESHOLD = 60;
 const BUTTON_COOLDOWN_MS = 1500;
-const HAND_DETECT_EVERY_N_FRAMES = 2;
+const MAX_GARMENT_DIM = 512;          // garments are downscaled to this before analysis
+const LOW_FPS_POPUP = 10;             // below this (avg) -> ask the user
+const LOW_FPS_LITE = 15;              // below this (avg) -> hand detection runs less often
+const FPS_WARMUP_SAMPLES = 3;         // ignore the first seconds (model warm-up)
 
 const LEFT_SHOULDER = 11, RIGHT_SHOULDER = 12, LEFT_HIP = 23, RIGHT_HIP = 24;
 const INDEX_FINGERTIP = 8;
 
 const rawVideo = document.getElementById('raw-video');
 const canvas = document.getElementById('output-canvas');
-const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const ctx = canvas.getContext('2d');
 const loader = document.getElementById('cam-loader');
 const loaderText = document.getElementById('loader-text');
 const liveDot = document.getElementById('live-dot');
@@ -185,6 +203,7 @@ const instructionsOverlay = document.getElementById('instructionsOverlay');
 const instructionsGotIt = document.getElementById('instructionsGotIt');
 const helpBtn = document.getElementById('helpBtn');
 const SEEN_INSTRUCTIONS_KEY = 'virtufit_seen_instructions';
+const COMPAT_OK_KEY = 'virtufit_compat_ok';
 
 let poseLandmarker = null;
 let handLandmarker = null;
@@ -193,6 +212,9 @@ let loopRunning = false;
 let lastVideoTime = -1;
 let frameCount = 0, lastFpsTime = performance.now();
 let fpsSamples = [];
+let fpsWindow = [];                   // recent fps samples for runtime checks (not cleared by telemetry)
+let perfWarned = false;
+let handEveryNFrames = 2;
 let gpuDelegateUsed = { pose: null, hands: null };
 let lastLightCheck = 0;
 let renderFrameIdx = 0;
@@ -200,7 +222,6 @@ let renderFrameIdx = 0;
 let lastButtonTime = 0;
 let handWasInside = { left: false, right: false };
 
-// Garments are analyzed lazily, the first time each one is selected.
 let clothes = [];
 let clothImages = [];
 let clothMeta = [];
@@ -213,6 +234,158 @@ const MAX_MISSED_POSE_FRAMES = 6;
 
 const analysisCanvas = document.createElement('canvas');
 const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+
+// Tiny canvas used for the low-light check (cheap alternative to reading the full frame)
+const lightCanvas = document.createElement('canvas');
+lightCanvas.width = 64; lightCanvas.height = 36;
+const lightCtx = lightCanvas.getContext('2d', { willReadFrequently: true });
+
+const isMobile = window.matchMedia('(max-width: 900px)').matches || window.matchMedia('(pointer: coarse)').matches;
+
+/* ───────────────────────── Compatibility check ───────────────────────── */
+
+function checkCompatibility() {
+  const blockers = [];
+  const warnings = [];
+
+  if (!window.isSecureContext)
+    blockers.push("This page must be opened over HTTPS to use the camera.");
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+    blockers.push("Your browser doesn't support camera access.");
+  if (typeof WebAssembly !== "object")
+    blockers.push("Your browser doesn't support WebAssembly, which the AI model needs.");
+
+  let renderer = "";
+  try {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    if (!gl) {
+      blockers.push("Your device doesn't support WebGL2, which is needed for GPU acceleration.");
+    } else {
+      const ext = gl.getExtension("WEBGL_debug_renderer_info");
+      if (ext) renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || "";
+    }
+  } catch (e) {
+    blockers.push("Could not initialise graphics acceleration.");
+  }
+
+  if (/swiftshader|llvmpipe|software|basic render/i.test(renderer))
+    warnings.push("No hardware GPU was detected, so the AI will run on the CPU and may be slow.");
+
+  const cores = navigator.hardwareConcurrency || 0;
+  if (cores && cores <= 4)
+    warnings.push(`Your device has only ${cores} CPU cores, so tracking may lag.`);
+
+  const mem = navigator.deviceMemory; // Chromium only
+  if (mem && mem <= 4)
+    warnings.push(`Your device reports about ${mem} GB of RAM, which may be tight for two AI models.`);
+
+  const conn = navigator.connection;
+  if (conn) {
+    if (conn.saveData)
+      warnings.push("Data Saver is on. The AI model files (several MB) will download on first use.");
+    if (/^(slow-2g|2g|3g)$/.test(conn.effectiveType || ""))
+      warnings.push("Your connection is slow, so the first load may take a while.");
+  }
+
+  return { blockers, warnings };
+}
+
+function showCompatPopup({ blockers = [], warnings = [], note = '', continueLabel = 'Continue anyway', cancelLabel = 'Cancel' }) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('compatOverlay');
+    const list = document.getElementById('compatList');
+    const title = document.getElementById('compatTitle');
+    const sub = document.getElementById('compatSub');
+    const noteEl = document.getElementById('compatNote');
+    const btnCancel = document.getElementById('compatCancel');
+    const btnContinue = document.getElementById('compatContinue');
+
+    const blocked = blockers.length > 0;
+    const items = blocked ? blockers : warnings;
+
+    title.textContent = blocked ? "Device not supported" : "Your device may struggle";
+    sub.textContent = blocked
+      ? "Virtual try-on can't run here for the following reason(s):"
+      : "Virtual try-on runs AI models live on your device. We noticed:";
+    list.innerHTML = '';
+    items.forEach(t => {
+      const li = document.createElement('li');
+      const em = document.createElement('span');
+      em.className = 'emoji';
+      em.textContent = blocked ? '⛔' : '⚠️';
+      const tx = document.createElement('span');
+      tx.textContent = t;
+      li.appendChild(em); li.appendChild(tx);
+      list.appendChild(li);
+    });
+    noteEl.textContent = note;
+    noteEl.style.display = note ? 'block' : 'none';
+
+    btnContinue.style.display = blocked ? 'none' : '';
+    btnContinue.textContent = continueLabel;
+    btnCancel.textContent = blocked ? 'OK' : cancelLabel;
+    overlay.classList.add('show');
+
+    const done = (val) => {
+      overlay.classList.remove('show');
+      btnCancel.onclick = btnContinue.onclick = null;
+      resolve(val);
+    };
+    btnCancel.onclick = () => done(false);
+    btnContinue.onclick = () => done(true);
+  });
+}
+
+async function preflight() {
+  const result = checkCompatibility();
+  if (!result.blockers.length && !result.warnings.length) return true;
+
+  // Don't nag again this session if the user already chose to continue
+  let remembered = false;
+  try { remembered = sessionStorage.getItem(COMPAT_OK_KEY) === '1'; } catch (e) {}
+  if (!result.blockers.length && remembered) return true;
+
+  result.note = "These checks are estimates. Many devices with these specs still run fine — you can continue and we'll monitor performance.";
+  const ok = await showCompatPopup(result);
+  if (ok && !result.blockers.length) {
+    try { sessionStorage.setItem(COMPAT_OK_KEY, '1'); } catch (e) {}
+  }
+  return ok;
+}
+
+function checkRuntimePerformance(fps) {
+  fpsWindow.push(fps);
+  if (fpsWindow.length <= FPS_WARMUP_SAMPLES) return;
+  const recent = fpsWindow.slice(-5);
+  if (recent.length < 5) return;
+  const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+
+  // Soft automatic fallback: run hand detection less often
+  if (avg < LOW_FPS_LITE && handEveryNFrames < 4) handEveryNFrames = 4;
+
+  if (!perfWarned && avg < LOW_FPS_POPUP) {
+    perfWarned = true;
+    loopRunning = false; // pause while asking
+    showCompatPopup({
+      warnings: [`Performance is low (about ${Math.round(avg)} fps on this device). The try-on may look choppy.`],
+      note: "Tip: you can still switch outfits by tapping Prev/Next. Better lighting and a plain background can also help.",
+      continueLabel: 'Keep going',
+      cancelLabel: 'Stop camera'
+    }).then(keep => {
+      if (keep && streaming) {
+        loopRunning = true;
+        lastFpsTime = performance.now();
+        frameCount = 0;
+        renderLoop();
+      } else {
+        camSwitch.checked = false;
+        stopCamera();
+      }
+    });
+  }
+}
+
+/* ───────────────────────── Garment analysis ───────────────────────── */
 
 function hasRealTransparency(data) {
   let transparentCount = 0;
@@ -282,11 +455,15 @@ function erodeAlpha(data, w, h, radius) {
 }
 
 function analyzeGarment(img) {
-  analysisCanvas.width = img.naturalWidth;
-  analysisCanvas.height = img.naturalHeight;
-  analysisCtx.clearRect(0, 0, analysisCanvas.width, analysisCanvas.height);
-  analysisCtx.drawImage(img, 0, 0);
-  const w = analysisCanvas.width, h = analysisCanvas.height;
+  // Downscale large garment images so analysis is fast on weak devices.
+  // All results are fractions, so they stay valid at any size.
+  const scale = Math.min(1, MAX_GARMENT_DIM / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+  analysisCanvas.width = w;
+  analysisCanvas.height = h;
+  analysisCtx.clearRect(0, 0, w, h);
+  analysisCtx.drawImage(img, 0, 0, w, h);
   let imgData = analysisCtx.getImageData(0, 0, w, h);
 
   if (!hasRealTransparency(imgData.data)) imgData = removeFlatBackground(imgData, w, h);
@@ -364,6 +541,8 @@ function ensureGarmentReady(i) {
   fullImg.src = `/assets/he/${clothes[i]}`;
 }
 
+/* ───────────────────────── Models & camera ───────────────────────── */
+
 async function createLandmarker(Cls, vision, modelPath, extra, key) {
   try {
     const lm = await Cls.createFromOptions(vision, {
@@ -392,18 +571,32 @@ async function initModels() {
   const handModelPath = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
   poseLandmarker = await createLandmarker(PoseLandmarker, vision, poseModelPath, { numPoses: 1 }, 'pose');
   handLandmarker = await createLandmarker(HandLandmarker, vision, handModelPath, { numHands: 2 }, 'hands');
+
+  // If everything fell back to CPU, start in lite mode right away
+  if (gpuDelegateUsed.pose === 'CPU') handEveryNFrames = 4;
 }
 
 async function startCamera() {
   if (streaming) return;
+
+  // Compatibility check BEFORE asking for the camera or downloading models
+  const ok = await preflight();
+  if (!ok) {
+    loader.classList.remove('hidden');
+    loaderText.textContent = 'Try-on cancelled';
+    camSwitch.checked = false;
+    return;
+  }
+
   loaderText.textContent = 'Requesting camera…';
   loader.classList.remove('hidden');
   canvas.classList.remove('live');
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-      audio: false
-    });
+    // Lower resolution on phones: the models resize internally anyway
+    const videoConstraints = isMobile
+      ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+      : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' };
+    const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
     rawVideo.srcObject = stream;
     await rawVideo.play();
 
@@ -414,6 +607,9 @@ async function startCamera() {
 
     streaming = true;
     loopRunning = true;
+    fpsWindow = [];
+    frameCount = 0;
+    lastFpsTime = performance.now();
     loader.classList.add('hidden');
     canvas.classList.add('live');
     liveDot.style.background = '#7fc87b';
@@ -444,21 +640,25 @@ function stopCamera() {
   prevBtnEl.classList.remove('gesture-hover');
   nextBtnEl.classList.remove('gesture-hover');
   handWasInside = { left: false, right: false };
+  lastVideoTime = -1;
 }
 
 window.toggleCamera = function () {
   camSwitch.checked ? startCamera() : stopCamera();
 };
 
+/* ───────────────────────── Rendering ───────────────────────── */
+
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function checkLowLight(now) {
   if (now - lastLightCheck < 500) return;
   lastLightCheck = now;
-  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  // Sample a tiny downscaled copy of the video instead of reading back the full frame
+  lightCtx.drawImage(rawVideo, 0, 0, lightCanvas.width, lightCanvas.height);
+  const { data } = lightCtx.getImageData(0, 0, lightCanvas.width, lightCanvas.height);
   let sum = 0, n = 0;
-  const sampleStride = 40;
-  for (let i = 0; i < data.length; i += 4 * sampleStride) {
+  for (let i = 0; i < data.length; i += 4) {
     sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
     n++;
   }
@@ -573,6 +773,7 @@ function drawFrame(poseResult) {
   if (now - lastFpsTime >= 1000) {
     fpsBadge.textContent = frameCount + ' fps (this device)';
     fpsSamples.push(frameCount);
+    checkRuntimePerformance(frameCount);
     frameCount = 0; lastFpsTime = now;
   }
 }
@@ -586,13 +787,15 @@ function renderLoop() {
     const poseResult = poseLandmarker ? poseLandmarker.detectForVideo(rawVideo, performance.now()) : null;
     drawFrame(poseResult);
 
-    if (handLandmarker && (renderFrameIdx % HAND_DETECT_EVERY_N_FRAMES === 0)) {
+    if (loopRunning && handLandmarker && (renderFrameIdx % handEveryNFrames === 0)) {
       const handResult = handLandmarker.detectForVideo(rawVideo, performance.now());
       checkGestureButtons(handResult);
     }
   }
-  requestAnimationFrame(renderLoop);
+  if (loopRunning) requestAnimationFrame(renderLoop);
 }
+
+/* ───────────────────────── UI ───────────────────────── */
 
 function updateUI(id) {
   curId = id;
@@ -663,7 +866,6 @@ instructionsGotIt.addEventListener('click', () => {
 });
 helpBtn.addEventListener('click', showInstructions);
 
-// Only load the wardrobe / start the camera once we know the user is signed in.
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.href = '/login.html';
